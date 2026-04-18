@@ -1,14 +1,14 @@
 ---
 title: "Concierge — Project Store Index"
 document_type: index
-version: "1.1"
-date: "2026-04-13"
+version: "1.2"
+date: "2026-04-18"
 status: current
 tags: [index, project-store, navigation]
 ---
 
 # CONCIERGE — PROJECT STORE INDEX
-**Version:** 1.1 — April 12, 2026
+**Version:** 1.2 — April 18, 2026
 **Purpose:** Quick reference for every file in the Claude.ai project store — what it is, why it exists, when to load it, and what not to expect from it.
 
 ---
@@ -43,129 +43,209 @@ tags: [index, project-store, navigation]
 
 ---
 
+### `../seeds/concierge-strategic-reframe.md`
+**Size:** ~8KB | **Status:** Current
+
+**What it is:** A reframing document that clarifies the two-part nature of Concierge: the infrastructure pipeline vs. Bit as the human-facing cognitive interface. Written to resolve conceptual confusion about scope.
+
+**What it contains:** The distinction between Concierge-as-infrastructure and Bit-as-interface; the harness layer concept (OpenClaw/similar as RonCo execution for well-defined tasks); the layer contract principle; what OpenClaw actually is and what it cannot do; why Bit is not a dumb terminal.
+
+**When to load it:** When the scope distinction between Bit and the rest of Concierge needs clarifying, or when evaluating third-party agent frameworks.
+
+**What it does NOT contain:** Implementation detail. Schema definitions.
+
+---
+
+### `../seeds/concierge-filesystem-organization-seed.md`
+**Size:** ~5KB | **Status:** Reference
+
+**What it is:** Handoff seed for the TrueNAS dataset planning and filesystem consolidation session.
+
+**What it contains:** Problem statement (pre-RAG filesystem state), current infrastructure inventory, tasks for the consolidation session, proposed canonical storage structure.
+
+**When to load it:** When resuming Atlas filesystem consolidation work (Phase 2 data migration not yet executed as of April 2026).
+
+---
+
+### `../seeds/concierge-remote-access-seed.md`
+**Size:** ~4KB | **Status:** Reference — work complete
+
+**What it is:** Handoff seed for the remote access scaffold session (Tailscale, Homarr, Open WebUI, SearXNG setup).
+
+**When to load it:** Rarely — work is complete. Load only if troubleshooting the remote access stack.
+
+---
+
+### `../seeds/seed-bit-application-spec-foundations.md`
+**Size:** ~4KB | **Status:** Current — active design seed
+
+**What it is:** Foundational design decisions for the Bit Application Specification, captured from April 2026 session conversations.
+
+**What it contains:** Bit's dual role (prosthetic layer + protocol translator); freeform dump as default interaction mode; slash command triggers as explicit mode selectors; ambiguity resolution principle (stakes-weighted); confirmation behavior for persistent record writes; cognitive profile requirements for output layer; CCSS onboarding pattern reference; Bit's relationship to the rest of Concierge.
+
+**When to load it:** At the start of any Bit Application Specification drafting session. This is the brief.
+
+---
+
+### `../seeds/seed-antigravity-opencode-integration.md`
+**Size:** ~unknown | **Status:** Current
+
+**What it is:** Seed for integrating Antigravity/OpenCode into the Concierge workflow.
+
+**When to load it:** When working on Claude Code / OpenCode integration topics.
+
+---
+
+### `../seeds/seed-llm-wiki-todo-items.md`
+**Size:** ~2KB | **Status:** Current — actionable todo
+
+**What it is:** Three concrete spec additions surfaced by the Karpathy LLM Wiki pattern analysis.
+
+**What it contains:** (1) Memory Spec — add lint pass as a named scheduled Planner job with enumerated failure modes; (2) Memory Spec — add supersession model to Tier 3 entry schema; (3) Technical Spec — add backfiling decision to Foreman job-close sequence.
+
+**When to load it:** At the start of a Memory Spec or Technical Spec revision session.
+
+---
+
 ### `../specs/concierge-philosophy.md`
 **Size:** ~55KB | **Status:** Complete and locked
 
 **What it is:** The "why" document. Written to be read when the ideas have gone cold and need rekindling. Not a technical reference — a recontextualization document.
 
-**What it contains:**
-- Central thesis: Wide Not Deep — ensemble diversity over monolithic depth
-- Constraints Are Contracts philosophy (the foundational principle behind everything)
-- The node admission criterion (contribution > orchestration cost) and its three sub-components
-- The Docker Tool Zoo concept and RonCo onboarding philosophy
-- The five-layer stack narrative (Bit through Workbee, each layer's purpose in plain language)
-- Bit's full history — how it evolved from the original Concierge Shell v0.1 through the Lock List redesign
-- Bit's current state as a Python package (~85 source files, CLI + TUI)
-- The High Table quorum architecture — quorum breadth vs. verifier depth
-- Physical Async Speculative Decoding (PASD) — how Daemon's heterogeneous GPU islands work
-- Node fleet roles (Daemon, Ergaster, Kratos, Noesis, Gramma, Atlas, Logos)
-- Seshat context seed system
+**What it contains:** Central thesis (Wide Not Deep), Constraints Are Contracts philosophy, node admission criterion, Docker Tool Zoo concept, five-layer stack narrative, Bit's full history, High Table quorum architecture, Physical Async Speculative Decoding (PASD), node fleet roles, Seshat context seed system.
 
-**When to load it:** When you've lost the thread of *why* an architectural decision was made the way it was. When onboarding someone new to the project. When writing documentation or external-facing content. Not needed for routine spec work if you have the session seed loaded.
+**When to load it:** When you've lost the thread of *why* an architectural decision was made. When onboarding someone new. When writing external-facing content.
 
-**What it does NOT contain:** Schemas, interface contracts, or implementation specifications. For those, see `../specs/concierge-technical-spec.md`.
+**What it does NOT contain:** Schemas, interface contracts, or implementation specifications.
 
 ---
 
 ### `../specs/concierge-technical-spec.md`
 **Size:** ~83KB | **Status:** Complete — 2,032 lines, 9 sections, all Hittite names in place
 
-**What it is:** The implementation reference. The "what it does and how the pieces fit together" document. Schemas before code. Contracts before implementation.
+**What it is:** The implementation reference. Schemas before code. Contracts before implementation.
 
-**What it contains (9 sections):**
-1. **Layer Interface Contracts** — full schemas for Intent Artifact, Execution Plan, Job Spec, Work Chunk, Work Result, Approval Signal, ExecutionState; layer-by-layer emits/receives; Bit's Lock List; disambiguation UI behavior; all Hittite job states
-2. **Task Package Registry** — Task Package schema, Registry query protocol, confidence threshold matching, Tarhuili (unregistered approximation) activation, Task Package Creation Wizard
-3. **Gap Resolver and Foundation Generation** — capability gap detection, Handanza state, Hašatar tag, foundation generation loop, `capability_exceeded` handling
-4. **Node and System Management** — system/node distinction, node admission, capability advertisement schema, health monitoring, degradation handling
-5. **Scheduling and Priority** — P1/P2/P3/P4 priority classes, scheduling algorithm, burst mode, Daemon island topology, PASD mechanics
-6. **Approved Sources** — source registry schema, trust tiers, fetch policy, content validation
-7. **WorkbeeSim** — test harness design, fixture scenarios, deterministic response protocol, API surface (8 endpoints)
-8. **Integrity Chain** — SHA256-only hashing, canonical JSON requirements, cross-language consistency requirement, `integrity_violation` terminal state, integrity event schema, invariants
-9. **Memory System Interface Contract** — tier definitions (Tier 0–3), layer read/write rules table, `context_refs` schema, memory system invariants
+**What it contains (9 sections):** Layer Interface Contracts; Task Package Registry; Gap Resolver and Foundation Generation; Node and System Management; Scheduling and Priority; Approved Sources; WorkbeeSim; Integrity Chain; Memory System Interface Contract.
 
-**When to load it:** When actively working on spec content, reviewing schemas, or implementing any layer. This is the working document for spec sessions.
+**When to load it:** Any session involving implementation work, schema review, or contract definitions.
 
-**What it does NOT contain:** Internal memory system implementation (that's `../specs/concierge-memory-spec.md`). Router internal design (explicitly deferred — separate doc/session). Bit application surface detail (separate Bit Application Specification, in progress).
+**What it does NOT contain:** Router internal design (deliberately unspecced, awaiting dedicated session). Bit Application Specification (separate document, not yet drafted).
 
 ---
 
 ### `../specs/concierge-memory-spec.md`
-**Size:** ~28KB | **Status:** Complete
+**Size:** ~unknown | **Status:** Complete
 
-**What it is:** The internal implementation spec for the Concierge memory system. Sits below `../specs/concierge-technical-spec.md`'s Section 9 interface contract — Section 9 defines the boundary, this document defines what's behind it.
+**What it is:** The memory system design specification covering all four tiers.
 
-**What it contains:**
-- Tier 0 (Active Context) — in-process session state, full schema, lifetime and discard rules
-- Tier 1 (Event Log) — append-only execution audit trail, event schema, retention policy (integrity violations retained indefinitely)
-- Tier 2 (Structured Facts) — user preferences, settings, named entities, behavioral patterns; write discipline (human-confirmed only); schema; promotion/demotion protocol
-- Tier 3 (Vector Archive) — semantic search index, NIDABA enrichment protocol, SQLite + FTS5 backend (no vector database dependency), query interface
-- Reference resolution protocol — how `context_refs` in Intent Artifacts are resolved by the Planner
-- Write discipline invariants for each tier
-- Memory lifecycle management
+**What it contains:** Tier 0–3 definitions, schemas, write protocols, reference resolution, NIDABA enrichment interface.
 
-**One open design decision (flagged, not yet confirmed):** Tier 3 content reaches the Planner via a direct query during plan generation — not through `context_refs`, which is Tier 2 only. This needs explicit confirmation before the Memory Spec is considered truly locked.
-
-**When to load it:** When working on memory system design, NIDABA enrichment, or Planner/Bit integration points involving memory. Not needed for routine spec work on other sections.
-
-**What it does NOT contain:** The interface contract (that's Section 9 in `../specs/concierge-technical-spec.md` — this doc defers to it on boundary definitions). NIDABA enrichment pipeline internals (TBD separately).
+**When to load it:** Memory system work, Tier 2/3 implementation, NIDABA pipeline design.
 
 ---
 
 ### `../specs/concierge-hardware-appendix.md`
-**Size:** ~31KB | **Status:** Complete and locked
+**Size:** ~unknown | **Status:** Complete
 
-**What it is:** Hardware fleet reference for node acquisition and routing decisions. The tier classifications will go stale; the principles behind them won't.
+**What it is:** Hardware fleet reference — node specs, PCIe topology, inference capabilities, acquisition research.
 
-**What it contains:**
-- Acquisition principles (Speed < Capacity, iGPU + RAM over dGPU for ensemble, dGPU as specialist nodes, RonCo onboarding philosophy)
-- Node tier taxonomy (Tier 1–5) with representative chips, routing notes, and use-case assignments
-- NPU architecture reference — comparative characterization of AMD XDNA 2, Intel NPU generations, Apple ANE, Rockchip NPU — by workload fit, not TOPS
-- Current fleet roster with per-node roles, specs, and Concierge assignment
-- Daemon corrected PCIe topology (April 2026): RTX 5060 Ti at x16, P100 #1 at x8, P100 #2 at x4; three operating modes (Island A, Island B, Burst)
-- Ergaster (i9-13900HX, Windows) — control plane candidate
-- Acquisition target guidance — what to look for when expanding the cluster
-
-**When to load it:** When making hardware acquisition decisions, when the Router design session addresses island capability advertisement, or when reviewing node admission for a specific candidate machine.
-
-**What it does NOT contain:** Software configuration. Implementation detail for any layer. Current prices (those go stale immediately).
+**When to load it:** Hardware decisions, node acquisition, model selection for specific nodes.
 
 ---
 
-### `hardware-inventory.md`
-**Size:** ~4KB | **Status:** Current — April 12, 2026
+### `../analysis/analysis-ernos-agent-vs-concierge.md`
+**Date:** 2026-04-11 | **Status:** Reference
 
-**What it is:** Canonical homelab hardware state. Quick reference for the actual machines, their specs, and current roles. Complements `../specs/concierge-hardware-appendix.md` (which is about principles and tier taxonomy) with concrete data about your fleet.
+**What it is:** Conceptual comparison of ErnOS Agent vs Concierge. ErnOS = single self-sovereign AI person. Concierge = task execution fabric. Philosophically orthogonal despite surface vocabulary overlap.
 
-**What it contains:**
-- Active fleet roster: Logos (M1 Max 10/24, 64GB), Atlas (Ryzen 5700G, 64GB, 3x12TB RaidZ1), Daemon (i7-12700F, 32GB, 2x P100, 1x 5060 Ti), Ergaster (i9-13900HX, 64GB), Kratos (Ryzen 7600X, RX 7800 XT, 32GB)
-- On-bench status: Noesis (active as dev laptop), Ephemera (unused under desk), Praxis (gaming only), Gramma (out of scope)
-- Fleet topology summary by compute tier
-- Service inventory (TrueNAS, Nextcloud, Forgejo, Nisaba, planned Ollama/Open WebUI/Homarr)
-- Changelog tracking updates to hardware state
-- Acquisition pipeline status (currently no pending acquisitions)
-
-**When to load it:** When you need to know actual hardware specs, current node roles, or what services are running where. Reference for spinup/config tasks. Update whenever hardware changes, services are added, or nodes are repurposed.
-
-**What it does NOT contain:** Principles or tier taxonomy (that's `../specs/concierge-hardware-appendix.md`). Implementation detail. Software configuration instructions.
+**Key finding:** ErnOS's Observer (17-rule output audit) maps onto Concierge's typed output contract validation. ErnOS's checkpoint system maps onto execution checkpointing at Foreman/Workbee boundary.
 
 ---
 
-### `searxng-openwebui-integration.md`
-**Size:** ~7KB | **Status:** Current — April 13, 2026
+### `../analysis/analysis-eric-michaud-claude-obsidian-vs-concierge.md`
+**Date:** 2026-04-11 | **Status:** Reference
 
-**What it is:** Integration guide for connecting SearXNG (self-hosted metasearch) to Open WebUI v0.8.12 for zero-cost web search capability.
+**What it is:** Analysis of Eric Michaud's Claude Code + Obsidian vault system vs Concierge.
 
-**What it contains:**
-- Overview: SearXNG running on Atlas port 8888, zero API fees, aggregates Google/Bing/DuckDuckGo in parallel
-- Step-by-step installation (create Filter function in Open WebUI)
-- Complete Python function code with proper headers to bypass botdetection (X-Forwarded-For, X-Real-IP)
-- How it works: intercepts messages with search keywords, queries SearXNG, injects results into model context
-- Troubleshooting for 403 Forbidden errors (botdetection) and rate limiting
-- Cost breakdown (~$5/month for infrastructure, $0 for API)
+**Key finding:** Eric's system is a single-node Concierge implementation. His slash command + daily brief pattern is prior art for Bit's interaction surface. Human/machine write-permission split is a concrete answer to Concierge's memory write-permission question.
 
-**When to load it:** When setting up web search in Open WebUI, or when troubleshooting SearXNG integration. Reference for debugging botdetection blocks.
+---
 
-**What it does NOT contain:** SearXNG configuration detail (that's the SearXNG docs). Open WebUI advanced features. Model-specific optimization.
+### `../analysis/analysis-karpathy-llm-wiki-vs-concierge.md`
+**Date:** 2026-04-11 | **Status:** Reference
+
+**What it is:** Analysis of Karpathy's LLM Wiki pattern vs Concierge.
+
+**Key finding:** LLM Wiki is a named instance of Concierge's continuous index/cache-prefill prep task. Three operational details added as Memory Spec todos (see `seed-llm-wiki-todo-items.md`).
+
+---
+
+### `../analysis/analysis-reddit-cognitive-os-vs-concierge.md`
+**Date:** 2026-04-12 | **Status:** Reference
+
+**What it is:** Analysis of a Reddit "cognitive OS" post and comments vs Concierge.
+
+**Key finding:** WillowEmberly's negentropic drift evaluation extends the lint pass concept. CCSS profile pattern is prior art for Bit's cognitive profile onboarding. "Cognitive OS" is the vocabulary the audience already uses for this category.
+
+---
+
+### `../analysis/analysis-karpathy-loop-vs-concierge.md`
+**Date:** 2026-04-18 | **Status:** Reference
+
+**What it is:** Analysis of the Karpathy Loop / auto-agent pattern vs Concierge.
+
+**Key finding:** Meta-agent/task-agent split validates Planner/Workbee architecture. Cross-family quorum confirmed as correct (model empathy finding applies to self-improvement loops, not correctness verification). OTel elevated to strategic asset — traces are the substrate for future self-optimization. "Local hard takeoff" added as vocabulary for Concierge's value proposition. Six specific edits recommended across Philosophy doc, Technical Spec, and Session Seed Addendum (see `../reference/edit-recommendations-karpathy-loop.md`).
+
+---
+
+### `../analysis/gemma-planning-analysis.md`
+**Date:** 2026-04 | **Status:** Reference
+
+**What it is:** Gemma 4 26B planning analysis — part of the model audit framework evaluation.
+
+---
+
+### `../reference/hardware-inventory.md`
+**Status:** Current
+
+**What it is:** Current hardware fleet inventory. Maintained separately from the Hardware Appendix for quick reference without loading the full spec.
+
+---
+
+### `../reference/atlas-filesystem-audit-and-plan.md`
+**Status:** Current — Phase 2 (data migration) pending execution
+
+**What it is:** Full TrueNAS filesystem consolidation plan — current state audit, proposed canonical structure, 5-phase migration plan with downtime estimates, rollback strategy.
+
+---
+
+### `../reference/searxng-openwebui-integration.md`
+**Status:** Current — work complete
+
+**What it is:** Integration guide for SearXNG + Open WebUI zero-cost web search on Atlas.
+
+---
+
+### `../reference/model-audit-framework.md`
+**Status:** Current
+
+**What it is:** Multi-category model evaluation protocol (ENKI framework). Five-test suite for Bit layer model selection. Extensible to additional task categories.
+
+---
+
+### `../reference/edit-recommendations-karpathy-loop.md`
+**Date:** 2026-04-18 | **Status:** Actionable — pending application
+
+**What it is:** Six specific additive edits to project documents derived from the Karpathy Loop analysis.
+
+**What it contains:** Edit A — OTel as institutional memory (Philosophy); Edit B — human-in-the-loop role framing (Philosophy); Edit C — "local hard takeoff" vocabulary (Philosophy); Edit D — OTel as strategic asset (Technical Spec); Edit E — same-family vs cross-family model pairing note (Technical Spec); Edit F — OTel strategic framing addendum (Session Seed Addendum).
+
+**When to load it:** At the start of a Philosophy doc or Technical Spec editing session.
+
+---
+
+### `../reference/concierge-project-index.md`
+**Status:** Current — this file
 
 ---
 
@@ -174,7 +254,7 @@ tags: [index, project-store, navigation]
 | Document | Location | Notes |
 |---|---|---|
 | Router Design Specification | Not yet written | Requires dedicated multi-model peer review session. Do not start without it. |
-| Bit Application Specification | Not yet written | Scope definition was in progress as of April 2026. Bobby indicated scope adjustments were needed before drafting. |
+| Bit Application Specification | Not yet written | Foundations seed exists (`seed-bit-application-spec-foundations.md`). Ready to draft. |
 | `CONCIERGE_TECHNICAL_POSTMORTEM.md` | Forgejo / Nextcloud | 916KB retrospective. Historical only. All live decisions are in v5 docs. |
 | `CONCIERGE_EVOLUTIONARY_DUMP.md` | Forgejo / Nextcloud | 333KB NIDABA raw export. Not curated. |
 | `CONCIERGE_CORE_DUMP.md` | Forgejo / Nextcloud | 338KB NIDABA raw export. Titles only. |
@@ -195,15 +275,21 @@ tags: [index, project-store, navigation]
 **Hardware / node acquisition decisions:**
 → `../seeds/concierge-session-seed.md` + `../specs/concierge-hardware-appendix.md` + `hardware-inventory.md`
 
-**Bit Application Specification drafting (when ready):**
-→ `../seeds/concierge-session-seed.md` + `../seeds/concierge-session-seed-addendum.md` + `../specs/concierge-technical-spec.md` + `../specs/concierge-philosophy.md` (for Lock List history)
+**Bit Application Specification drafting:**
+→ `../seeds/concierge-session-seed.md` + `../seeds/concierge-session-seed-addendum.md` + `../seeds/seed-bit-application-spec-foundations.md` + `../specs/concierge-technical-spec.md` + `../specs/concierge-philosophy.md`
 
 **Router design session (when scheduled):**
 → `../seeds/concierge-session-seed.md` + `../seeds/concierge-session-seed-addendum.md` + `../specs/concierge-technical-spec.md` + `../specs/concierge-hardware-appendix.md`
 
+**Memory Spec revision (lint pass, supersession model, backfiling):**
+→ `../seeds/concierge-session-seed.md` + `../seeds/seed-llm-wiki-todo-items.md` + `../specs/concierge-memory-spec.md`
+
+**Philosophy / Technical Spec editing:**
+→ `../seeds/concierge-session-seed.md` + `../reference/edit-recommendations-karpathy-loop.md` + target spec doc
+
 **Lost the thread / need to reconnect with the "why":**
-→ `../specs/concierge-philosophy.md` (standalone — it's written for exactly this purpose)
+→ `../specs/concierge-philosophy.md` (standalone — written for exactly this purpose)
 
 ---
 
-*Index updated April 13, 2026. Added SEARXNG_OPENWEBUI_INTEGRATION.md (remote access scaffold Phase 3 support). Infrastructure table updated with full service listing. Session seed and project index both reflect April 13 remote access scaffold completion (Tailscale, Homarr, Open WebUI, SearXNG, zero-cost web search).*
+*Index updated April 18, 2026. Added analysis-karpathy-loop-vs-concierge.md and edit-recommendations-karpathy-loop.md. Updated to v1.2. Repo now synced to GitHub (StopBeingLogical/concierge) with push mirror. Project store sourced from GitHub integration. All 26 files present.*

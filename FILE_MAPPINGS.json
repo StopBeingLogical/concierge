@@ -15,10 +15,12 @@
   "analysis-ernos-agent-vs-concierge.md": "docs/analysis/analysis-ernos-agent-vs-concierge.md",
   "analysis-karpathy-llm-wiki-vs-concierge.md": "docs/analysis/analysis-karpathy-llm-wiki-vs-concierge.md",
   "analysis-reddit-cognitive-os-vs-concierge.md": "docs/analysis/analysis-reddit-cognitive-os-vs-concierge.md",
+  "analysis-karpathy-loop-vs-concierge.md": "docs/analysis/analysis-karpathy-loop-vs-concierge.md",
   "gemma-planning-analysis.md": "docs/analysis/gemma-planning-analysis.md",
   "hardware-inventory.md": "docs/reference/hardware-inventory.md",
   "atlas-filesystem-audit-and-plan.md": "docs/reference/atlas-filesystem-audit-and-plan.md",
   "searxng-openwebui-integration.md": "docs/reference/searxng-openwebui-integration.md",
   "model-audit-framework.md": "docs/reference/model-audit-framework.md",
+  "edit-recommendations-karpathy-loop.md": "docs/reference/edit-recommendations-karpathy-loop.md",
   "concierge-project-index.md": "docs/reference/concierge-project-index.md"
 }
