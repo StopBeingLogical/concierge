@@ -13,6 +13,88 @@ tags: [index, project-store, navigation]
 
 ---
 
+## Document Categories & Organization
+
+The project documentation is organized into five categories, each serving a distinct purpose in the design and implementation lifecycle:
+
+### `/specs/` — Canonical Specifications
+**Status:** Locked and immutable (or change via formal review only)
+
+Authoritative layer contracts, schemas, and interface definitions. These are the "what we build" documents. Specs are written first, before implementation. All implementation must conform to specs or trigger a formal spec update.
+
+**Contents:**
+- `concierge-philosophy.md` — Strategic vision and architectural principles
+- `concierge-technical-spec.md` — Layer contracts, schemas, and interface definitions
+- `concierge-memory-spec.md` — Memory tier architecture and persistence models
+- `concierge-hardware-appendix.md` — Hardware fleet reference and acquisition guidance
+
+### `/seeds/` — Session Handoff Primers
+**Status:** Current but evolving (updated after significant sessions)
+
+Compressed context for resuming work after a hiatus. Seeds contain enough information to start working without reading all the specs, but point to specs for details. Each seed is tied to a specific type of work.
+
+**Contents:**
+- `concierge-session-seed.md` — Master primer; load this first
+- `concierge-session-seed-addendum.md` — Latest decisions pending merge
+- `concierge-strategic-reframe.md` — Scope clarification (Concierge vs. Bit)
+- `concierge-filesystem-organization-seed.md` — Atlas migration primer
+- `seed-bit-application-spec-foundations.md` — Bit design brief
+
+### `/design/` — Design Evolution & Rationale
+**Status:** Working documents (ideas in progress)
+
+Captures design decisions, alternatives considered, and implementation approach notes before they crystallize into specs. Design notes explain *why* choices were made and what was rejected. This is where architectural debates happen; specs are the conclusions.
+
+**Contents:**
+- `concierge-bit-application-design-notes.md` — Bit UI architecture, memory system, implementation approach
+- `concierge-memory-system-design-notes.md` — Memory layer design evolution
+- (Future design docs as work progresses)
+
+**Usage:** Load when understanding the rationale behind a spec decision. Load when contributing to ongoing design discussions. Reference from seeds when a design decision needs explaining.
+
+### `/analysis/` — Comparative & External Analysis
+**Status:** Reference (not authoritative)
+
+Analysis of external systems, prior art, and related projects. Used to validate Concierge's architectural choices and learn from others' design decisions. Not part of the spec but informs it.
+
+**Contents:**
+- `analysis-ernos-agent-vs-concierge.md`
+- `analysis-eric-michaud-claude-obsidian-vs-concierge.md`
+- `analysis-karpathy-llm-wiki-vs-concierge.md`
+- `analysis-reddit-cognitive-os-vs-concierge.md`
+- `analysis-karpathy-loop-vs-concierge.md`
+- `gemma-planning-analysis.md`
+
+### `/reference/` — Lookup & Quick Reference
+**Status:** Current (updated as needed)
+
+Not authoritative specs, not design documents, not seeds. Reference docs are lookups and implementation aids: hardware inventory, integration guides, FAQs, edit recommendations, and this index.
+
+**Contents:**
+- `concierge-project-index.md` — This file
+- `concierge-architecture-faq.md` — Implementation-phase Q&A
+- `hardware-inventory.md` — Current fleet status
+- `atlas-filesystem-audit-and-plan.md` — Migration plan
+- `searxng-openwebui-integration.md` — Integration guide
+- `model-audit-framework.md` — Model evaluation protocol
+- `edit-recommendations-karpathy-loop.md` — Specific spec edits
+
+---
+
+## How to Use This Organization
+
+**Starting a new session:** Load `/seeds/concierge-session-seed.md` first. It points to the relevant specs.
+
+**Implementing a feature:** Load the relevant `/specs/` doc. If you need design rationale, load `/design/`. If you hit an implementation question, check `/reference/concierge-architecture-faq.md`.
+
+**Revisiting an old decision:** Check `/design/` first (why was this chosen?), then `/specs/` (what exactly was decided?).
+
+**Contributing to design work:** Discussions live in `/design/`. Once consensus emerges, conclusions move to `/specs/`.
+
+**Onboarding someone new:** `/seeds/concierge-session-seed.md` → `/specs/concierge-philosophy.md` → `/reference/concierge-architecture-faq.md`.
+
+---
+
 ## File Inventory
 
 ### `../seeds/concierge-session-seed.md`
@@ -205,6 +287,23 @@ tags: [index, project-store, navigation]
 
 ---
 
+## Design Documents (Working / In-Progress)
+
+### `../design/concierge-bit-application-design-notes.md`
+**Date:** 2026-04-21 | **Status:** Drafting — active design phase
+
+**What it is:** Design-phase notes capturing rationale, tradeoffs, and open questions for the Bit application architecture.
+
+**What it contains:** Hardware constraint analysis, memory architecture (WAL + background flush), language/framework choice rationale (Go + Bubble Tea), MVU pattern explanation, model roles (rubber duck vs. deterministic), slash command routing, Topic Package strategy, offline operation, development methodology, and open design questions awaiting resolution.
+
+**When to load it:** When understanding why architectural decisions were made, or when contributing to ongoing design discussions. These notes will feed into the future `../specs/concierge-bit-application-spec.md` once design consensus is reached.
+
+**Related:** Precedes `../reference/concierge-architecture-faq.md` (questions about design) and `../seeds/seed-bit-application-spec-foundations.md` (brief).
+
+---
+
+## Reference Documents (Lookup & Quick Reference)
+
 ### `../reference/hardware-inventory.md`
 **Status:** Current
 
@@ -244,6 +343,17 @@ tags: [index, project-store, navigation]
 
 ---
 
+### `../reference/concierge-architecture-faq.md`
+**Date:** 2026-04-21 | **Status:** Current — active drafting
+
+**What it is:** Frequently asked questions about Concierge architecture, Bit layer design, model roles, memory system, and implementation decisions.
+
+**What it contains:** Q&A across 8 topic areas: Bit Layer & Intent Translation, Offline Queueing & Sync, Model Loading & Concurrency, Model Roles, Prefill Packages (Topic Packages), Local Deterministic Jobs, Topic Packages & Memory, Next Steps for implementation questions.
+
+**When to load it:** When questions about architectural design decisions arise during Bit implementation or infrastructure work. Complements the spec documents with concrete answers to implementation-phase questions.
+
+---
+
 ### `../reference/concierge-project-index.md`
 **Status:** Current — this file
 
@@ -275,8 +385,10 @@ tags: [index, project-store, navigation]
 **Hardware / node acquisition decisions:**
 → `../seeds/concierge-session-seed.md` + `../specs/concierge-hardware-appendix.md` + `hardware-inventory.md`
 
-**Bit Application Specification drafting:**
-→ `../seeds/concierge-session-seed.md` + `../seeds/concierge-session-seed-addendum.md` + `../seeds/seed-bit-application-spec-foundations.md` + `../specs/concierge-technical-spec.md` + `../specs/concierge-philosophy.md`
+**Bit Application design & specification work:**
+→ `../seeds/concierge-session-seed.md` + `../seeds/seed-bit-application-spec-foundations.md` + `../design/concierge-bit-application-design-notes.md` + `../reference/concierge-architecture-faq.md` + `../specs/concierge-technical-spec.md`
+
+*(Use design notes to understand rationale; use FAQ for implementation questions; use technical spec for layer contracts.)*
 
 **Router design session (when scheduled):**
 → `../seeds/concierge-session-seed.md` + `../seeds/concierge-session-seed-addendum.md` + `../specs/concierge-technical-spec.md` + `../specs/concierge-hardware-appendix.md`

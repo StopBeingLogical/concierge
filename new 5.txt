@@ -1,0 +1,1955 @@
+Never hit Claudes Usage Limit Again
+https://youtu.be/2f7ZkImNHFo
+
+Transcript:
+Intro + Bonus Tip
+0:00
+Did you know that your 10th message to
+0:01
+Claude cost 11 times more than your
+0:03
+first? Not because Anthropic is charging
+0:05
+you more. It's because Claude rereads
+0:07
+your entire chat history before replying
+0:09
+to the message that you just sent. I
+0:11
+used to hit Claude's usage limits every
+0:12
+single day. However, after implementing
+0:14
+a few practical rules for how I use
+0:17
+Claude, I haven't hit my limits in over
+0:19
+a week. So, without further ado, here
+0:21
+are the 11 things I changed that stopped
+0:23
+me from hitting Claude's usage limits.
+0:25
+Oh, and if we haven't met yet, I'm
+0:26
+Doobie. I build apps every day using
+0:28
+Claude and I've generated $47,000 in
+0:30
+less than 50 days using these AI tools.
+0:33
+So, first thing I need you to do in
+0:34
+order to save your precious Claude usage
+0:36
+is you need to stop looking at it as how
+0:39
+many messages you sent and instead look
+0:41
+at how many tokens you used. Because
+0:43
+Claude doesn't count messages, it counts
+0:46
+tokens. A token is roughly 3/4 of a
+0:49
+word. So, a 100word message is about 130
+0:51
+tokens. Every time you send a message,
+0:53
+Claude rereads the entire conversation
+0:56
+from the top.
+0:58
+So your first message costs maybe 500
+1:00
+tokens, your second message costs a,000,
+1:02
+your 10th message costs 5,000, and your
+1:05
+30th, that's 232,000 tokens for one
+1:08
+message. A developer named Aniket Parha
+1:11
+actually tracked this. 98.5% of his
+1:13
+tokens went to rereading old
+1:15
+conversation history. Only 1.5% went to
+1:18
+generating the actual response. That
+1:20
+means for every hundred tokens you're
+1:21
+burning, only one and a half are doing
+1:24
+useful work. That's not Claude being
+1:26
+stingy. That's you feeding it a novel
+1:29
+every time you ask a question. Once you
+1:31
+understand this, everything will change
+1:33
+because every single rule I'm about to
+1:35
+give you comes back to this one idea.
+1:38
+Use fewer tokens per interaction. And
+1:41
+just like the tokens you put in count
+1:42
+against you, the inverse is also true.
+1:45
+Every word Claude sends back counts as
+1:47
+well. So, check out this repo called
+1:49
+Caveman. It makes Claude drop the fluff
+1:51
+and talk well like a caveman. People
+1:54
+have reported token reductions of up to
+1:56
+65% from using this alone. I'll leave a
+1:59
+link in the description. Rule one, don't
+Rule 1- Don't Follow Up
+2:01
+follow up. This is the one that saved me
+2:04
+the most tokens immediately. When Claude
+2:06
+gets something wrong, your instinct is
+2:07
+to send a correction. No, I meant this.
+2:10
+Ah, that's not what I wanted. Try this
+2:12
+instead. Don't do that. Every subsequent
+2:14
+message gets added to the conversation
+2:16
+history. And remember, Claude rereads
+2:19
+all of it every single turn. So, you're
+2:21
+burning tokens on context. That didn't
+2:23
+even help. At five messages deep, you're
+2:25
+already at 7,500 tokens. So, instead of
+2:28
+correcting Claude with a follow-up,
+2:30
+click edit on your original message. Fix
+2:32
+the wording. Hit regenerate. The old
+2:34
+exchange gets replaced instead of
+2:36
+multiplied. Exact same result, but for a
+2:38
+fraction of the cost. Rule number two, a
+Rule 2 - Fresh Chat Strategy
+2:41
+fresh chat every 15 to 20 messages.
+2:43
+Imagine a chat with 100 plus messages.
+2:45
+That's over 2.5 million tokens burned.
+2:48
+Most of it just rereading old history.
+2:50
+So, ideally, start a new chat every 15
+2:52
+to 20 messages. When a conversation gets
+2:54
+long, ask Claude to summarize
+2:56
+everything. Copy that summary, start a
+2:58
+new chat, and paste it as your first
+3:00
+message. You keep the context, you ditch
+3:02
+the bloat. I started doing this, and my
+3:05
+limit warnings basically disappeared
+3:06
+overnight. Rule number three, batch your
+Rule 3 - Batch Prompting
+3:09
+questions into one message. Many people
+3:11
+believe that splitting questions into
+3:13
+separate messages leads to a better
+3:14
+result. Almost always the opposite is
+3:17
+true. Three separate prompts equals
+3:19
+three context loads. One prompt with
+3:21
+three tasks equals one context load. You
+3:23
+save tokens twice. Fewer context reloads
+3:26
+and you stay further from hitting your
+3:28
+limit. Instead of summarize this article
+3:30
+now list the main point, now suggest a
+3:32
+headline sent separately. Instead, just
+3:35
+write summarize this article, list the
+3:37
+main points and suggest a headline. And
+3:39
+guess what? The answers often turn out
+3:41
+better because Claude immediately sees
+3:43
+the full picture. Three questions, one
+3:45
+prompt, always. Four, track your token
+Rule 4 - How to Track Token Usage
+3:48
+[music] usage. Claude doesn't show you
+3:50
+how many tokens you're actually using.
+3:52
+Just a progress bar that says 63% use.
+3:55
+That's it. So, a developer called Pel
+3:57
+Hurin built a local dashboard that reads
+4:00
+files Claude Code already writes to your
+4:02
+machine. Turns out every session, every
+4:05
+turn, every single token is logged to
+4:06
+your machine in JSON L files. Input
+4:09
+tokens, output tokens, cache reads,
+4:11
+cache creation, model names, timestamps.
+4:14
+It's all there. You just can't see it.
+4:16
+The dashboard scans those local files,
+4:18
+builds a database, and serves charts on
+4:21
+local host. You can filter by model,
+4:23
+filter by time range, cost estimates
+4:25
+based on current API pricing, works
+4:27
+retroactively on your entire Claude code
+4:29
+history. It's free, open source, zero
+4:31
+dependencies. You just need Python. You
+4:34
+can't fix what you can't measure.
+4:35
+Install it, look at your actual numbers,
+4:37
+and I guarantee you'll be shocked at
+4:39
+where your tokens are actually going.
+Rule 5 - Upload Recurring Files
+4:41
+Rule number five, upload recurring files
+4:43
+to projects. If you upload the same PDF
+4:45
+to multiple chats, Claude retokenizes
+4:48
+that document every single time. Use the
+4:50
+projects feature instead. Upload your
+4:52
+file once, it gets cached. Every new
+4:54
+conversation inside that project
+4:56
+references it without burning tokens
+4:58
+again. Cache project content doesn't eat
+5:00
+into your usage when you access it
+5:02
+repeatedly. If you work with contracts,
+5:04
+briefs, style guides, or any long
+5:06
+documents, this alone could cut your
+5:08
+token spend dramatically. Rule number
+Rule 6 - Memory + User Preferences
+5:10
+six, set up memory and user preferences.
+5:13
+Every new chat without saved context
+5:15
+wastes three to five messages on setup.
+5:18
+I'm a marketer. I write in a casual
+5:20
+style. I prefer short paragraphs. You've
+5:22
+probably seen people start every prompt
+5:23
+with act as a professional whatever.
+5:27
+That's token burned on repeat. Claude
+5:29
+can actually remember this permanently.
+5:31
+Go to settings, then memory and user
+5:32
+settings. Save your role, communication
+5:35
+style, and settings once. Claude will
+5:37
+automatically apply them to every new
+Rule 7 - The Feature Rule
+5:39
+chat. Rule number seven, turn off
+5:41
+features you're not actually using.
+5:43
+Things like web search, connectors, and
+5:44
+explore mode. All of these add tokens to
+5:47
+every response, even if you don't use
+5:48
+them. For example, if you're writing
+5:50
+your own content, turn off the search
+5:51
+and tools feature. The advanced thinking
+5:54
+feature also consumes tokens. Keep it
+5:56
+turned off by default. Only turn it on
+5:58
+if your first attempt was
+5:59
+unsatisfactory. The rule of thumb is if
+6:02
+you didn't turn this feature on
+6:03
+intentionally, just turn it off. Eight,
+Rule 8 - Alternating Models
+6:05
+use Haiku for simple tasks. Grammar
+6:08
+checking, brainstorming, formatting,
+6:10
+quick translations, short answers, Haiku
+6:12
+handles all of this at a much lower cost
+6:14
+than Sonnet or Opus. Choosing the right
+6:17
+model is the most important decision you
+6:19
+make every single day. Haiku for drafts
+6:21
+and simple tasks. Frees up 50 to 70% of
+6:24
+your budget for tasks that truly require
+6:26
+powerful models. The way that I look at
+6:27
+it is Haiku is for quick tasks. It's low
+6:30
+cost. Sona is for real work, medium
+6:32
+cost. Opus is for deep thinking and high
+6:34
+cost. You don't need powerful models for
+6:36
+simple tasks. Rule nine, and this one
+Rule 9 - The Rolling 5 Hour Window
+6:39
+might sound obvious, but spread your
+6:41
+work across the day. The Claude system
+6:43
+uses a rolling 5-hour window. It does
+6:45
+not reset at midnight. Your limit
+6:47
+gradually decreases. Messages sent at
+6:49
+9:00 a.m. will no longer count by 2 p.m.
+6:51
+If you use up your entire limit during a
+6:53
+single morning session, most of your
+6:55
+daily limit will remain unused. Divide
+6:57
+your day into two to three sessions,
+6:59
+morning, afternoon, and evening. By the
+7:02
+time you return, your previous usage is
+7:03
+no longer counted and you have a new
+Golden Rule - How To Never Hit Your Limit
+7:05
+limit. Quick cheat code. Set a cron job
+7:07
+to literally just ping Claude with one
+7:09
+tiny message at 6:00 a.m. while you're
+7:11
+still in bed. Your 5hour window starts
+7:14
+then, not when you sit down to work. So,
+7:16
+if you hit your limit at 10:00 a.m.,
+7:18
+your reset lands at 11:00. 10. Work
+Rule 10 - Off Peak Hours
+7:20
+during off peak hours. Starting March
+7:23
+26, 2026, Enthropic will now use up your
+7:27
+5hour session limit more quickly during
+7:29
+peak hours. 5:00 a.m. to 11:00 a.m.
+7:31
+Pacific time, 8:00 a.m. to 2:00 p.m.
+7:33
+Eastern time on weekdays. Same query,
+7:35
+same chat, but during peak hours, it
+7:37
+impacts your limit more. Your weekly
+7:39
+limit remains the same, but how it's
+7:41
+distributed has changed. Running
+7:43
+resource inensive tasks in the evening
+7:45
+or on weekends will significantly
+7:47
+stretch your plan. If you're outside the
+7:49
+US, in Europe, Latin America or Asia,
+7:51
+peak hours may actually fall during your
+7:53
+afternoon. So, check the calculation
+7:55
+based on time zones. If you're like me
+7:57
+and you live in Australia, your off peak
+7:59
+hours are actually in the morning and in
+8:01
+the midday. That is usually when you can
+8:03
+use claw without any worries. Rule 11,
+Rule 11- Extra Usage
+8:05
+enable extra usage as a safety net.
+8:07
+Subscribers to the Pro or Max plan can
+8:10
+enable the overage feature in the
+8:12
+settings usage section. When your
+8:13
+session limit is reached, Claude won't
+8:15
+block your access. It will switch to pay
+8:17
+as you go billing at API rates. You set
+8:19
+a monthly spending limit to avoid
+8:21
+unexpected bills. This isn't about
+8:22
+saving tokens. It's about not losing
+8:24
+your work at the worst possible moment.
+8:26
+At first, it will be very difficult to
+8:28
+follow all the rules, but once you can
+8:30
+apply them automatically, you'll almost
+8:32
+never hit your limits. You might even
+8:34
+switch from the max plan to a regular
+8:35
+one. You'll have plenty of tokens to
+8:37
+use. Now, whenever you see your usage
+8:39
+limits go up, just remember Claude
+8:41
+doesn't count your messages.
+
+
+===
+
+Any Model. Any App. Build Your AI OS to Work Everywhere.
+https://youtu.be/jbHB-rzKBAs
+
+Transcript:
+Don't Lock Your Brain Inside 1 AI Tool
+0:00
+If you're wiring your entire life into
+0:02
+AI tools that didn't exist 6 months ago,
+0:05
+systems built on someone else's
+0:07
+infrastructure, then what happens when
+0:09
+that tool changes? When the API breaks,
+0:11
+the company pivots, or your favorite
+0:13
+model gets deprecated, will you reach
+0:15
+for your ideas only to realize they were
+0:18
+never actually yours? This video is
+0:20
+about making sure that never happens to
+0:22
+you. I'm going to share what I'm calling
+0:24
+my AI OS, an AI system that you actually
+0:28
+own. just a handful of plain text files.
+0:31
+You're not locked into Claude, Open AAI,
+0:33
+or whatever everyone's building their
+0:35
+lives around this week. Because when the
+0:36
+next shiny AI paradigm shift happens,
+0:39
+you want your system to still be
+0:41
+standing. I'm Nick Milo and I'm here to
+0:43
+help you build an ideaverse, a home for
+0:46
+your best thinking. Let's get started.
+File Over AI
+0:48
+It's no secret that I'm a huge fan of
+0:50
+Obsidian. It's the world's current best
+0:52
+app to manage your thinking, your
+0:54
+projects, and your life. But what really
+0:55
+sets it apart isn't its features. is
+0:58
+that you aren't locked in. Your notes
+1:00
+are literally just text files in folders
+1:03
+sitting on your computer, which means
+1:06
+you don't need Obsidian to access your
+1:07
+knowledge. You could open your Ideaverse
+1:09
+in any app that can read plain text and
+1:12
+edit them immediately. So, if Obsidian
+1:14
+goes away tomorrow, you're completely
+1:17
+fine. Obsidian CEO calls this philosophy
+1:20
+file over app. But as we enter the world
+1:23
+of AI, it's not just your notes app that
+1:26
+we're talking about anymore. We have to
+1:28
+take it one layer deeper. We need not
+1:30
+just file over app. We need file over
+1:33
+AI. If you spend hundreds of hours
+1:35
+setting up your personal preferences and
+1:37
+structuring your files to be perfectly
+1:39
+read by claude or codecs or whatever's
+1:41
+hot right now only to have that tool go
+1:43
+offline, you've lost access to your
+1:45
+entire workflow. That's why we want file
+1:48
+over AI. You want your AI processes
+1:51
+owned by you, built into your core files
+1:53
+and folders that carry the DNA of your
+1:55
+AI operating system and not locked away
+1:58
+in any specific tool. Your core files
+2:01
+and folders should move with you and
+2:03
+your ideiverse. Here's exactly what a
+2:06
+system like that looks like. This is the
+My AI OS System
+2:09
+my AIOS system. It works in any app with
+2:12
+any AI model. So layer 1 is your
+2:16
+ideaverse. This is your own universe of
+2:18
+knowledge that you've been building
+2:19
+either for years or you can start
+2:21
+building today. This is all of your
+2:23
+notes, your ideas, your connections in
+2:26
+simple files that you can take into any
+2:28
+app anywhere. Now, I break my idea verse
+2:30
+into three big sections. The atlas for
+2:32
+my knowledge, calendar for notes related
+2:34
+to time, and then efforts for projects
+2:37
+I'm working on, ACE for short. Your
+2:40
+ideaverse is the center of your AIO OS.
+2:43
+the experiences and thinking that aren't
+2:45
+available to anybody else but you. And
+2:49
+the more you put into it, the smarter
+2:51
+any AI becomes when it starts working
+2:53
+with you. Layer two, your maps. This is
+2:57
+the connective tissue, a few core files
+2:59
+that sit between your idea verse and any
+3:02
+AI tool. It makes your knowledge able to
+3:05
+be navigated by AI. I call the files in
+3:08
+layer 2 your maps and manuals. Think
+3:11
+indexes for both you and any AI working
+3:14
+alongside you. And they're just two
+3:16
+essential files that matter most, which
+3:18
+we'll talk about in just a minute. Layer
+3:20
+three, your tools. These are the actual
+3:23
+applications you use. Now, it could be
+3:25
+Obsidian to navigate your notes, and
+3:27
+then it could be Claude Cowwork to work
+3:29
+on the files themselves. Notebook LM,
+3:31
+OpenClaw, Claude Code, Gemini. The tools
+3:35
+in your toolkit will change, and that's
+3:37
+because this is the most replaceable
+3:40
+layer. Models update, apps get
+3:43
+discontinued or updated, new tools break
+3:45
+out, and that's fine because your
+3:47
+ideaverse and maps stay central. So, no
+3:50
+matter which app rotates in or out,
+3:53
+you'll be ready for it. These are the
+Your Maps (3 File System)
+3:54
+three layers of your AI OS. And for this
+3:57
+system to work, we need to focus on the
+3:59
+middle layer where the core files that
+4:01
+connect your idea verse to the outside
+4:03
+tools lives. Think about it. Point an AI
+4:07
+at a vault, a folder with tons of notes,
+4:10
+20,000 interconnected notes and it's
+4:12
+going to struggle and it takes a lot of
+4:14
+tokens. It takes a lot of time. It takes
+4:16
+a lot of resources. But when you give it
+4:18
+a map, it can navigate. It can figure
+4:21
+out which files are actually relevant.
+4:23
+Isolate those, skip the rest without
+4:26
+having to scan everything. Fast, rapid
+4:28
+context building. That's what effective
+4:31
+AI needs. Maps of content are something
+4:33
+I've been refining for years to make
+4:35
+sense of and navigate my most important
+4:37
+thinking. But today, maps are even more
+4:39
+powerful than ever. And that's because
+4:42
+AI needs the exact same structure to
+4:44
+navigate large amounts of context that
+4:46
+we need. Your maps show the information
+4:48
+highways which you or AI can navigate.
+4:51
+As long as you build your maps in a way
+4:52
+that gives sufficient context, you could
+4:55
+hand them to an external tool and it
+4:57
+should be able to work in your idea
+4:59
+verse immediately. Especially if you use
+5:01
+a folder system like ACE that gives each
+5:04
+section of your idea verse a clear guide
+5:06
+to what's inside and how to engage with
+5:09
+it as well. So now let's talk about the
+Setting Up Your Folder System
+5:10
+two core files that every AIOS needs so
+5:14
+that you can connect your IDverse to any
+5:16
+tool you want to work with now and deep
+5:19
+into the future. Before anything else,
+5:20
+set up your basic folders. If you're in
+5:22
+Obsidian, you have a vault folder and
+5:25
+then ACE will be your three core folders
+5:27
+underneath. Check out this video to set
+5:29
+up ACE in the best possible way and
+5:31
+explain what these bonus folders, the
+5:33
+plus folder and the X folder are for.
+5:35
+But for now, just create a folder for
+5:37
+each to start with. Once ACE is set up,
+5:39
+we can create our AIOS folder. And this
+5:42
+is where all of our AI related maps will
+5:45
+actually live except for one. The first
+File 1 - Me.md
+5:47
+map file to create is your MIMD, a map
+5:50
+for your portable identity. If you've
+5:53
+used Claude Co-work or Code, you might
+5:55
+know about a Claude MD, a master file
+5:58
+Claude reads every time you start a
+6:00
+session. But that's Claude specific. If
+6:02
+you switch to a different AI tool next
+6:04
+month, that file doesn't go with you.
+6:06
+Instead, you're going to create your own
+6:08
+memd, just a markdown file. Just make a
+6:11
+new note in Obsidian, and you can just
+6:13
+call it me. If we go to the file
+6:15
+explorer or the finder, we'll see that
+6:16
+it says me.md. Once you make it, just
+6:20
+start by adding around 50 to 80 lines
+6:22
+that tell AI, here's who I am, here's
+6:25
+how I think, here's how I want you to
+6:27
+work with me. That's why it's called
+6:29
+me.md because it's for you. It's your
+6:32
+file and it's portable. is the guiding
+6:35
+light file that you want your AI tools
+6:37
+to read anytime you start a work
+6:38
+session. Here's what mine looks like
+6:40
+right now. At the top, I make it clear.
+6:42
+This is your briefing on who I am, how I
+6:44
+think, and how to interact with me.
+6:46
+There are a couple quick links for me to
+6:48
+navigate through if I would like. So, I
+6:49
+can just jump around to these other ones
+6:51
+that we'll look at shortly. But AI works
+6:53
+best with file paths. So, I'm giving it
+6:56
+very clear file paths to find the other
+6:59
+most important maps. So, I have a MI
+7:01
+section and then my working preferences.
+7:03
+So in the me section, I have a highle
+7:05
+summary statement of what I'm about,
+7:07
+some first principles, some linking your
+7:10
+thinking mantras that I live by, a
+7:12
+hypothesis on meaning, values and
+7:14
+virtues, how I think. You can see some
+7:17
+sections I'm still filling out, but
+7:18
+sections that I have in here, key
+7:20
+frameworks and intellectual tools, just
+7:23
+a lot of stuff that's going to inform AI
+7:25
+on how to work with me. I quite like
+7:26
+this intellectual lineage with some
+7:29
+thinkers that have really stood out for
+7:30
+me over the years. Recurring concepts,
+7:33
+references, spark lists, life
+7:35
+reflections, and then we get into my
+7:37
+working preferences. So, address me by
+7:39
+my first name. Keep it casual. I want a
+7:42
+collaborator, not just a tool. Here's
+7:44
+the vibe. We're going to skip a great
+7:45
+question and I'd be happy to help. Just
+7:47
+help. And so, I'm giving it all the
+7:49
+instructions that any AI tool will need.
+7:52
+Some basic rules and some other places
+7:54
+to go. Now you'll notice at my root
+7:56
+level because I'm using Claude and
+7:58
+Claude co-work. If I click on the
+7:59
+claude.md file, all it says is go
+8:02
+immediately to mi.md and you will find
+8:05
+everything there. That's how we make a
+8:07
+futurep proof AI OS. All you need is the
+8:10
+MI.MD file. So in summary, your MIMD
+8:13
+answers the question, who am I? And this
+8:16
+won't change often after you set it up.
+File 2 - Vault Map
+8:18
+Now your vault map answers a different
+8:20
+question. What is your idea verse? and
+8:23
+how should you move through it? So,
+8:24
+let's go there now. So, I'm telling any
+8:27
+AI this is your manual to navigate and
+8:29
+work in my idea verse. This is your
+8:32
+vault's master table of contents and
+8:34
+manual. What I'm telling any AI is how
+8:37
+to navigate this idea verse structure of
+8:39
+mine. I'm giving it the basic folder and
+8:42
+file paths. You can say here's what's in
+8:44
+Atlas and why. Here's what's in calendar
+8:46
+and how I use it. Look in efforts for
+8:48
+this kind of thing and here are the most
+8:50
+important sub areas. Keeping it separate
+8:52
+from your mi.mmd file keeps you from
+8:55
+rewriting your identity stuff every time
+8:57
+you start a new project over here. Your
+8:59
+vault map will change more often and
+9:01
+we'll talk about how to update that in a
+9:03
+minute. For example, whenever your
+9:04
+biggest life priority shift or your
+9:06
+vault structure changes a little bit.
+9:08
+The vault map is your AI's manual to
+9:10
+both navigate and work within inside of
+9:14
+our ideaverse. That means it needs to
+9:16
+know how to create notes on your behalf.
+9:19
+So here we can talk about different note
+9:21
+types, where they go, how I like the
+9:23
+files to be named, different idea verse
+9:26
+note types when it creates a note for me
+9:27
+in a different area, and for later, how
+9:31
+to interact with other idea verses. And
+9:33
+this is one of the things that truly
+9:35
+sets apart my AI OS. It's not just your
+Collaborating with Other Ideaverses
+9:39
+idea verse that you can interact with.
+9:41
+In the future, we'll be showing how you
+9:43
+can connect with multiple idea verses.
+9:45
+For example, I can connect my ideaverse
+9:48
+with the linking or thinking team's idea
+9:51
+verse and keep my information private
+9:54
+but still communicate the files that are
+9:56
+important for our team. I mean, think
+9:58
+about this. This is why we use the
+10:00
+phrase ideaverse because now we could
+10:02
+connect it to guess what? Family idea
+10:04
+verse. This is where we're going if we
+10:07
+want to where we have our core knowledge
+10:10
+that is ours. It's private. It's
+10:12
+protected. But because of the AIOS maps
+10:15
+and manuals layer, the translation
+10:18
+layer, we can then translate to other
+10:20
+places, other tools as we need to. Once
+10:22
+you have these two core files, the final
+File 3 - Skills Map
+10:25
+AIOS map that you need at the highest
+10:27
+level is your skills map. A skill is
+10:30
+just a file. It's markdown like the
+10:32
+first two, and it just teaches AI a
+10:34
+specific process. a process for writing
+10:37
+emails, how you like your research
+10:39
+categorized, any process you might want
+10:41
+to do in the same way over and over
+10:44
+again in your idea verse. Let's get
+10:46
+clear on skills. A lot of people are
+10:47
+treating skills like tools that things
+10:49
+that belong in this AI layer 3, the tool
+10:52
+layer, the AI layer specific to the app
+10:54
+that they've installed. But they're text
+10:56
+file documentation. They're just mini
+10:59
+maps of content for a process. And
+11:01
+because they're markdown files, too,
+11:03
+they can travel with you to any other AI
+11:06
+tool that reads text if you have an AI
+11:10
+OS. In this case, this is exactly where
+11:13
+all of my skills that I will ever create
+11:16
+go. This way, every AI knows exactly
+11:19
+where to go to find them. Each skill is
+11:21
+a simple document that describes for any
+11:24
+tool reading it. When I asked you to do
+11:26
+this, here's how I want it done. Here's
+11:28
+an example skill I generated in a
+11:30
+previous video. a holistic briefing
+11:32
+where AI can look into different sources
+11:34
+and then compile for me a briefing in
+11:37
+the morning so I can start my day with
+11:39
+complete context and perspective. In my
+11:42
+skill map, you can see how I've
+11:44
+organized multiple skills in different
+11:46
+sections. So, if I want to do briefings,
+11:48
+I can see the different briefing skills
+11:49
+I've created. If it has to do with
+11:51
+emails, files and maintenance, meetings,
+11:53
+reviews, I have some kind of higher
+11:55
+level thinking that I put under the
+11:57
+chief of staff role. Start by making one
+11:59
+or two core skills. Maybe a skill for
+12:01
+how you want daily notes structured or
+12:03
+how you want information summarized. And
+12:06
+then put them in the same AIOS skills
+12:09
+folder. As you're starting out, every
+Update Your Maps
+12:11
+few weeks, look at your mi.md and your
+12:13
+vault map and ask, does this need
+12:15
+adjustments? Is it getting bloated?
+12:17
+Think like a gardener and make it a
+12:19
+rhythm. This is similar to the rhythm of
+12:21
+your idea verse. You're adding notes.
+12:22
+You're relating them. You're making
+12:23
+connections. Sometimes you're removing
+12:25
+and archiving things that aren't vital
+12:27
+or maybe they've gone out of date. And
+Managing Privacy
+12:29
+just to talk on privacy for a second,
+12:31
+what does it mean to share information
+12:32
+with AI tools right now? Using Frontier
+12:35
+AI models and tools like for example
+12:38
+cloud co-work, it does mean trusting
+12:40
+some layer 3 tools with your data if you
+12:43
+want to use today's most up-to-date
+12:45
+capabilities. For some of us, that's
+12:47
+okay. For others, it won't be. And
+12:49
+that's fine, too. Eventually, I do
+12:52
+believe everything moves towards
+12:54
+open-source and local models, at least
+12:56
+enough for our purposes. So, if you
+12:58
+build an AI OS the way I'm suggesting,
+13:01
+portable, it's file-based, it's not
+13:04
+locked into any one tool, you'll be
+13:06
+ready to switch to fully local AI the
+13:08
+moment it's ready and working. In the
+13:10
+meantime, your ideaverse, it's still
+13:12
+yours. Be intentional about what you
+13:14
+give AI access to. If it's right for
+13:17
+you, keep deeply personal areas like
+13:19
+journals outside of what AI touches.
+13:22
+Always make backups. And when AI
+13:24
+generates content, mark it clearly. Use
+13:27
+an emoji, a tag, specific folders,
+13:29
+whatever works, so that you always know
+13:32
+what's yours and what's been AI
+13:34
+assisted. If you want even more details
+Next Steps
+13:36
+on my AIOS, including the exact tools
+13:40
+that I'm using today, and the details of
+13:42
+how I set up my core maps of content,
+13:44
+there are two things I'd recommend.
+13:46
+First, check out my step-by-step course,
+13:48
+linking your AI. It's where you build
+13:51
+your own thinking partner with
+13:52
+superpowers. One that's futurep proof to
+13:55
+work with any AI. It deep dives into
+13:57
+what we covered in this video and a
+13:59
+whole lot more. Basically, don't just
+14:01
+learn about AI. You need to teach AI to
+14:04
+learn about you. If you'd like to learn
+14:06
+more, check out the link below. And
+14:08
+last, if you just want more details on
+14:10
+how I'm using my AI OS today using
+14:13
+Obsidian and Claude Co-work, then
+14:15
+definitely check out this video next for
+14:17
+more on exactly that.
+
+
+I replaced my entire stack with Postgres...
+https://youtu.be/TdondBmyNXc
+
+0:00
+I just replaced my entire tech stack
+0:01
+with Postgress. Modern software
+0:03
+engineering has basically become a
+0:04
+subscription management simulator. We've
+0:06
+been gaslit by cloud vendors into
+0:08
+believing that to build even a basic
+0:10
+application, we need to stitch together
+0:12
+a fragile distributed web of highly
+0:14
+specialized microservices. You wire up a
+0:16
+Reddus instance for caching, a CFKA
+0:18
+cluster for background jobs, elastic
+0:20
+search just to power a simple search bar
+0:22
+and a dedicated vector database for that
+0:24
+one AI feature you tacked on. By the
+0:26
+time you finally deploy your app to your
+0:28
+highly demanding user base of yourself
+0:30
+and your mom, you're paying a dozen
+0:32
+different Y Combinatorbacked SAS
+0:33
+startups just to keep the lights on. It
+0:35
+is an overengineered, wildly overpriced
+0:37
+trap. But what if I told you that you
+0:39
+could take almost all of those shiny
+0:40
+cloud dependencies, toss them directly
+0:42
+into the incinerator and replace them
+0:43
+with a single piece of boring
+0:45
+30-year-old open-source software? The
+0:47
+dirty little secret the tech industry
+0:49
+doesn't want you to know is that one
+0:50
+battle tested tool cannibalize your
+0:52
+entire architecture. Today we're
+0:54
+stripping your stack down to one
+0:56
+unstoppable source of truth, PostgreSQL.
+0:58
+Here's how you use Postgress to replace
+1:00
+literally everything. Before we start
+1:02
+violently dismantling your current
+1:03
+architecture, let's look at the weapon
+1:05
+that we're using. At its core,
+1:06
+Postcrestql is an open- source object
+1:09
+relational database system that has been
+1:10
+in active development for over three
+1:12
+decades. Out of the box, it gives you
+1:13
+rocksolid acid compliance, meaning when
+1:16
+your cheap cloud server inevitably
+1:17
+crashes, your user data isn't corrupted.
+1:19
+But the real reason it cannibalize your
+1:20
+entire stack is its extensibility. It
+1:22
+doesn't just store standard rows and
+1:24
+columns. It supports advanced custom
+1:25
+data types, multi-dimensional arrays,
+1:27
+geometric shapes, and key value stores.
+1:29
+This architectural flexibility has led
+1:31
+to a massive ecosystem of thirdparty
+1:33
+extensions. It's basically the Skyrim of
+1:35
+databases, a rockolid foundation that
+1:37
+you can aggressively mod until it does
+1:39
+exactly what you want. Here is how you
+1:41
+use it to replace everything. One of the
+1:43
+great debates among web developers is
+1:45
+SQL versus NoSQL. And the core selling
+1:47
+point of NoSQL is handling unstructured
+1:49
+data. You no longer need a separate
+1:50
+database like MongoDB just to do this.
+1:52
+Postgress offers deeply integrated
+1:54
+native support for JSON through its JSON
+1:56
+B data type which fundamentally changes
+1:58
+how data is processed. The B stands for
+2:00
+binary. Unlike standard text storage
+2:02
+that must be parsed every time a query
+2:04
+is run, JSON B converts your JSON
+2:06
+payload into a decomposed binary format
+2:08
+at the moment of insertion. The true
+2:10
+magic unlocks when you apply a gin or
+2:12
+generalized inverted index to this
+2:14
+column. An inverted index works exactly
+2:17
+like the index at the back of a
+2:18
+textbook. Instead of scanning every
+2:20
+database row looking for a specific key,
+2:22
+the index maps the keys directly to the
+2:24
+row IDs where they exist. This allows
+2:26
+you to query deeply nested JSON
+2:28
+properties instantly and join those
+2:30
+documents with traditional relational
+2:31
+tables in a single asset compliant
+2:33
+transaction. You get the exact schema
+2:35
+flexibility of NoSQL without sacrificing
+2:37
+data integrity. Provisioning Rabbit MQ
+2:40
+or Reddus purely for reliable task
+2:42
+distribution introduces massive
+2:43
+architectural overhead. But building a
+2:45
+queue in a standard SQL database usually
+2:47
+leads to deadlocks. Postgress solved
+2:49
+this elegantly with its native
+2:50
+concurrency control, specifically the
+2:52
+four update skip locked clause. When
+2:55
+building a background worker system, the
+2:57
+traditional problem is that two workers
+2:59
+might try to grab the same pending job
+3:01
+row at the exact same time. One locks it
+3:03
+and the other gets stuck waiting. Adding
+3:05
+skip locked changes the physics of the
+3:07
+query. It instructs the database engine,
+3:09
+grab the first available row, lock it so
+3:11
+no one else can touch it. But if you hit
+3:13
+a row that is already locked by another
+3:15
+worker, don't wait. Just skip it and
+3:17
+grab the next one. This turns a standard
+3:19
+relational table into a highly
+3:21
+concurrent weight-free message cue
+3:23
+capable of processing thousands of jobs
+3:25
+per second. While specialized tools like
+3:27
+Elastic Search are mandatory for
+3:28
+globally distributed log analysis, using
+3:30
+them just to power a search bar in your
+3:32
+app is massive overkill. Postgress is
+3:34
+fully equipped to power advanced full
+3:36
+text search directly by stripping
+3:38
+language down to its mechanical roots
+3:40
+using TS vector and TS query. When you
+3:42
+insert text into a TS vector column,
+3:44
+Postgress parses it, removes useless
+3:47
+stop words, and applies linguistic
+3:48
+stemming. So a word like running simply
+3:51
+becomes run. Furthermore, you can apply
+3:53
+the pg triagram extension for fuzzy
+3:56
+matching, the ability to find accurate
+3:58
+results even when a user makes a typo.
+4:00
+It does this using triagrams, which
+4:02
+simply breaks words down into
+4:03
+three-letter chunks. If a user misspells
+4:05
+Postgrql as Postgress with two S's, the
+4:08
+database doesn't look for an exact
+4:09
+match. It finds the overlapping
+4:11
+three-letter patterns and returns the
+4:13
+correct result anyway, giving you a
+4:15
+highly performant typo tolerant search
+4:17
+engine without syncing data to a
+4:18
+secondary cluster. If you're building an
+4:20
+AI app, you might consider paying for a
+4:22
+vector database like Pine Cone. But
+4:24
+keeping vector data separate from your
+4:26
+relational data creates an architectural
+4:28
+nightmare known as the hybrid search
+4:30
+problem. If you need to find documents
+4:31
+semantically similar to a user prompt,
+4:33
+but only if they were authored by a
+4:35
+specific user last week, querying two
+4:37
+different databases and cross
+4:39
+referencing the results over a network
+4:41
+is incredibly slow. You can handle this
+4:42
+entirely within Postgress using the PG
+4:44
+vector extension. It allows you to store
+4:46
+highdimensional arrays right next to
+4:48
+your core application data and supports
+4:50
+HNSW or hierarchical navigable small
+4:53
+world indexes. HNSW is a graph-based
+4:55
+algorithm for approximate nearest
+4:57
+neighbor search that organizes vectors
+4:59
+into a multi-layered structure acting as
+5:01
+a highdimensional skip list. It allows
+5:03
+for fast scalable vector searches by
+5:05
+starting at a top layer with few
+5:07
+longrange connections and moving to
+5:09
+lower denser layers to refine the
+5:11
+search. This minimizes the number of
+5:13
+distance calculations needed, allowing
+5:15
+the database to rapidly navigate through
+5:17
+neighborhoods of similar data points to
+5:18
+find approximate nearest neighbors in
+5:20
+milliseconds. Ultimately, you can
+5:22
+execute this complex vector math
+5:23
+natively while simultaneously applying
+5:26
+strict relational filters. We've been
+5:28
+talking a lot about how powerful
+5:29
+Postgress is, but let's be honest,
+5:31
+provisioning, scaling, and managing
+5:32
+testing environments for it can still be
+5:34
+a massive headache, and that's exactly
+5:36
+where today's sponsor, Neon, comes in.
+5:38
+Neon is a fully managed serverless
+5:40
+Postgress platform built specifically
+5:42
+for the cloud. They've fundamentally
+5:43
+re-engineered Postgress by separating
+5:45
+compute from storage, which unlocks
+5:47
+features you just can't get with a
+5:48
+traditional setup. My absolute favorite
+5:50
+part about Neon is database branching.
+5:52
+Just like you branch your code in Git,
+5:53
+Neon lets you instantly branch your
+5:55
+Postgress database. Want to test a risky
+5:57
+schema migration or a complex query?
+5:59
+Just click a button, spin up a copy of
+6:01
+your database in seconds with all of its
+6:03
+data, and run your tests. If you mess
+6:05
+up, your prod database remains
+6:06
+completely untouched. It completely
+6:08
+changes how you handle dev and staging
+6:10
+environments. Plus, because Neon is true
+6:12
+serverless, it automatically scales
+6:14
+compute based on your application's
+6:16
+workload and scales down to zero when
+6:18
+it's not in use. You don't have to
+6:19
+overprovision servers, meaning you only
+6:21
+pay for exactly what you use. Whether
+6:23
+you're building a weekend side project
+6:25
+or a hightraic application, Neon makes
+6:27
+Postgress feel modern, fast, and
+6:30
+frictionless. Click the link in the
+6:31
+description to sign up and deploy your
+6:32
+first serverless Postgress database on
+6:34
+Neon for free in just seconds. A huge
+6:37
+thanks to Neon for sponsoring this
+6:38
+video. Now, back to even more Postgress.
+6:41
+If you're building applications that
+6:42
+rely heavily on maps or routing,
+6:44
+Postgress isn't just an alternative. It
+6:46
+is the undisputed industry gold
+6:48
+standard. The PostGIS extension
+6:50
+transforms Postgress into a spatial
+6:52
+powerhouse using the gist or generalized
+6:54
+search tree index. If you ask the
+6:56
+database to find all coffee shops within
+6:58
+a complex geographic polygon, doing raw
+7:01
+mathematical distance calculations on
+7:03
+every coordinate would crash the server.
+7:04
+Instead, a generalized search tree draws
+7:07
+simple overlapping bounding boxes around
+7:09
+your geographic shapes. The database
+7:11
+first checks these simple boxes
+7:13
+instantly discarding millions of data
+7:15
+points that aren't even close and only
+7:17
+performs the heavy precise geometric
+7:19
+math on the handful of points that
+7:20
+remain. This routinely outperforms
+7:22
+standalone GIS systems. On the other
+7:24
+hand, when handling massive volumes of
+7:26
+telemetry or event logs, developers
+7:28
+reach for time series databases.
+7:30
+Postgress handles this natively through
+7:32
+declarative partitioning and the highly
+7:34
+underutilized brin or block range index.
+7:37
+Instead of storing billions of logs in
+7:39
+one massive table, partitioning
+7:41
+transparently splits your data into
+7:42
+physical daily or monthly chunks. As
+7:45
+long as your logs are inserted
+7:46
+sequentially, the brin index is a
+7:48
+superpower. Instead of indexing every
+7:50
+single row like a massive bloated B
+7:52
+tree, it only stores the minimum and
+7:54
+maximum timestamps for physical blocks
+7:55
+of data on the disk. When you query for
+7:57
+a specific time range, Postgress reads
+7:59
+the brin index, instantly skips millions
+8:02
+of physical disk pages that don't
+8:04
+contain your target timestamps, and
+8:05
+scans only the tiny fraction that do.
+8:08
+How about for complex dashboards? The
+8:10
+knee-jerk reaction is to pipe data into
+8:12
+expensive data warehouses like
+8:14
+snowflake. You can bypass this by
+8:15
+leveraging Postgress materialized views.
+8:18
+A standard view runs its underlying
+8:20
+query from scratch every time a user
+8:22
+hits the dashboard, crashing your
+8:23
+database under load. A materialized view
+8:25
+runs the heavy aggregation just once and
+8:27
+physically saves that calculated result
+8:29
+to the disk. To prevent stale data,
+8:31
+Postgress uses the refresh materialized
+8:33
+view concurrently command provided your
+8:35
+view has a unique index. It calculates
+8:37
+the fresh analytics entirely in the
+8:39
+background, compares the differences and
+8:41
+seamlessly hot swaps the updated rows
+8:44
+into place without ever locking out your
+8:46
+end users. For years, we've blindly
+8:48
+accepted that you need to write and
+8:50
+maintain thousands of lines of
+8:51
+boilerplate Node.js JS or Python code
+8:53
+just to shuttle JSON between your
+8:55
+database and your front end. You can
+8:57
+incinerate this entire middleware layer
+8:59
+using tools like post REST or the PG
+9:02
+GraphQL extension. Instead of manually
+9:04
+writing a new controller and endpoint
+9:06
+every time you add a database table,
+9:07
+these tools analyze your schema and
+9:09
+automatically generate a fully
+9:11
+documented highly performant REST or
+9:13
+GraphQL API on the fly. And before you
+9:15
+panic about security, Postgress handles
+9:17
+that natively, too. By leveraging rowle
+9:19
+security, you can write strict
+9:20
+cryptographic policies directly in the
+9:22
+database that guarantee a user can only
+9:24
+ever read or write their own specific
+9:26
+rows based on their authentication
+9:28
+token. Your database securely becomes
+9:30
+your entire backend, eliminating the
+9:32
+need for a fleet of API servers. While
+9:34
+the just use Postgress philosophy is
+9:36
+incredibly powerful, you shouldn't
+9:38
+entirely abandon your critical thinking.
+9:40
+It isn't a silver bullet. Postgress
+9:42
+scales vertically with exceptional
+9:43
+grace, but horizontally sharding a
+9:45
+monolithic database to handle extreme
+9:47
+scale introduces immense complexity. If
+9:49
+your application actually needs to
+9:50
+ingest millions of telemetry events per
+9:52
+second or requires submillisecond
+9:54
+in-memory caching for millions of
+9:56
+concurrent websockets, you absolutely
+9:58
+must adopt specialized distributed
+10:00
+tools. However, until you cross that
+10:02
+threshold of massive enterprise scale,
+10:04
+leaning on the core battle tested
+10:06
+mechanics of Postgress to run your
+10:08
+entire stack is arguably the smartest
+10:10
+and most cost-effective engineering
+10:11
+decision you can make. Seriously, to
+10:14
+really level up as a software engineer,
+10:15
+you have to build hard things. That's
+10:17
+why I highly recommend Code Crafters.
+10:19
+Instead of building basic apps, they
+10:21
+guide you through building real
+10:22
+developer tooling from scratch. You'll
+10:23
+write your own working versions of
+10:24
+Reddus, Git, CFKA, Docker, and even
+10:27
+modern AI tools like Claude Code. It
+10:29
+completely changes how you understand
+10:30
+software. Check the description for a
+10:32
+link that automatically applies a 40%
+10:34
+discount to your account. Also in the
+10:36
+description is a link to my free
+10:37
+newsletter where I share exclusive deep
+10:38
+dives on system design and real world
+10:40
+backend development. The stuff you won't
+10:42
+find in basic coding tutorials.
+

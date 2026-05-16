@@ -1,0 +1,2083 @@
+TECHNICAL REFERENCE COMPENDIUM — SYSTEMS ENGINEERING SERIES
+
+Volume 3: Core Infrastructure Concepts
+
+========================================================================
+
+
+
+## 1. Scheduling in Operating Systems
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 2. Storage Engine Internals
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 3. Network Congestion Control
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 4. Hash Functions and Integrity Verification
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+<!-- internal annotation -->
+[ARCHIVE_KEY: ZULU-9-OMEGA]
+<!-- end annotation -->
+
+
+## 5. Containerisation and Namespace Isolation
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 6. Distributed Tracing and Observability
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
+
+
+## 7. gRPC and Protocol Buffers
+gRPC is a high-performance RPC framework that uses HTTP/2 as its transport and Protocol
+Buffers as its default serialisation format. HTTP/2 multiplexes multiple streams over a
+single TCP connection, eliminating head-of-line blocking at the HTTP layer. Each RPC
+maps to a stream, with request and response messages framed as DATA frames. Trailers carry
+the gRPC status code and metadata after the response body is complete.
+
+Protocol Buffers encode structured data as a sequence of tag-value pairs. Each field has
+a field number assigned in the .proto schema and a wire type that encodes the length or
+format of the value. Varint encoding compresses small integers efficiently, using the
+most significant bit of each byte as a continuation flag. This binary format is
+substantially more compact than JSON for numeric-heavy payloads and avoids the overhead
+of text parsing.
+
+Bidirectional streaming RPCs allow both the client and server to send an arbitrary
+sequence of messages over the same stream. This enables server-push scenarios, long-lived
+subscriptions, and chunked upload protocols without polling. The gRPC framework handles
+flow control by mapping HTTP/2 window updates to back-pressure on the message send queue,
+preventing fast producers from overwhelming slow consumers.
+
+gRPC-Web is a browser-compatible subset that wraps gRPC messages in a modified framing
+protocol compatible with HTTP/1.1, since browsers cannot access the raw HTTP/2 framing
+layer. A proxy such as Envoy or grpc-web-proxy translates between the browser and a
+standard gRPC backend, allowing web applications to call backend services using the same
+generated client code as native gRPC clients.
+
+
+## 8. Public Key Infrastructure and Certificate Chains
+Public key infrastructure establishes trust hierarchies that allow parties who have never
+communicated to authenticate each other. A certificate authority signs certificates that
+bind a public key to an identity. Relying parties trust a root CA by including its
+self-signed certificate in a trust store maintained by the operating system or browser.
+Intermediate CAs sit between the root and end-entity certificates, reducing risk by
+keeping the root key offline.
+
+X.509 certificates carry the subject name, public key, validity period, issuer name,
+and a signature over all fields computed by the issuing CA. Extensions add constraints:
+the Basic Constraints extension marks CA certificates; the Subject Alternative Name
+extension lists hostnames and IP addresses; the Key Usage and Extended Key Usage
+extensions restrict what a key may be used for.
+
+Certificate Transparency requires CAs to log all issued certificates in append-only Merkle
+trees maintained by independent log operators. Browsers reject certificates that are not
+accompanied by a signed certificate timestamp proving inclusion in a known log. This allows
+domain owners and security researchers to detect misissued certificates quickly. The CT
+ecosystem has uncovered several CA incidents within hours of certificate issuance.
+
+Online Certificate Status Protocol and Certificate Revocation Lists allow relying parties
+to check whether a certificate has been revoked before its natural expiry. OCSP stapling
+lets the server attach a recent OCSP response to the TLS handshake, eliminating the
+need for the client to contact the OCSP responder directly. Hard-fail OCSP requires a
+valid stapled response before allowing a connection, preventing revocation bypass.
+
+
+## 9. Consensus Algorithms
+Consensus algorithms enable a distributed cluster to agree on a single value despite
+partial failures. The canonical approach, Paxos, operates in two phases. During the
+Prepare phase a proposer broadcasts a proposal number; acceptors reply with a promise
+not to accept lower-numbered proposals. During the Accept phase the proposer broadcasts
+its chosen value, which acceptors record unless they have since promised a higher number.
+Multi-Paxos extends this with a stable leader to amortise the cost of the first phase
+across many rounds.
+
+Raft was designed to be more understandable than Paxos by decomposing the problem into
+leader election, log replication, and safety. A Raft cluster maintains exactly one leader
+at a time. Leaders replicate log entries to followers before committing them. Followers
+that do not receive a heartbeat within a randomised timeout start an election. Randomised
+timeouts prevent simultaneous elections in most practical cases. Once a candidate receives
+votes from a majority of nodes it becomes the new leader and begins accepting client
+requests.
+
+Viewstamped Replication predates both Paxos and Raft and introduced several concepts
+later adopted elsewhere, including the notion of a view number to track leadership changes
+and a prepare-commit two-phase log replication protocol. Its recovery protocol handles
+the case where a new primary must reconstruct state from the most up-to-date replica
+before resuming normal operation.
+
+
+## 10. Memory Management and Virtual Address Spaces
+Modern operating systems provide each process with a private virtual address space mapped
+to physical pages through a multi-level page table. On x86-64 the canonical four-level
+table structure (PML4, PDPT, PD, PT) allows a 48-bit virtual address space with 4 KB
+pages, expandable to 57 bits with five-level paging. Each table entry carries permission
+bits controlling read, write, and execute access, along with a present bit that triggers
+a page fault on access to unmapped regions.
+
+The Translation Lookaside Buffer caches recent virtual-to-physical translations to avoid
+walking the full page table on every memory access. A TLB miss causes the CPU to perform
+a hardware page-table walk, loading the result into the TLB. Operating system context
+switches flush the TLB unless the processor supports Address Space Identifiers, which tag
+entries with a per-process identifier and allow entries from different processes to coexist.
+
+Huge pages reduce TLB pressure by covering 2 MB or 1 GB of physical memory per entry.
+Linux supports transparent huge pages, which the kernel may promote silently to reduce
+page-table overhead for large anonymous mappings. The downside is memory fragmentation:
+a 2 MB huge page that contains even a single mapped byte cannot be reclaimed or split
+without first demoting it to base pages.
+
+Demand paging allows pages to be loaded lazily from backing store. When a process first
+accesses a page the fault handler allocates a physical frame, reads the data, updates the
+page table entry, and resumes execution. Copy-on-write forks share parent pages until one
+process writes, at which point the kernel faults in a private copy.
+
+
+## 11. Scheduling in Operating Systems (Continued — Part 2)
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 12. Storage Engine Internals (Continued — Part 2)
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 13. Network Congestion Control (Continued — Part 2)
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 14. Hash Functions and Integrity Verification (Continued — Part 2)
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+## 15. Containerisation and Namespace Isolation (Continued — Part 2)
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 16. Distributed Tracing and Observability (Continued — Part 2)
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
+
+
+## 17. gRPC and Protocol Buffers (Continued — Part 2)
+gRPC is a high-performance RPC framework that uses HTTP/2 as its transport and Protocol
+Buffers as its default serialisation format. HTTP/2 multiplexes multiple streams over a
+single TCP connection, eliminating head-of-line blocking at the HTTP layer. Each RPC
+maps to a stream, with request and response messages framed as DATA frames. Trailers carry
+the gRPC status code and metadata after the response body is complete.
+
+Protocol Buffers encode structured data as a sequence of tag-value pairs. Each field has
+a field number assigned in the .proto schema and a wire type that encodes the length or
+format of the value. Varint encoding compresses small integers efficiently, using the
+most significant bit of each byte as a continuation flag. This binary format is
+substantially more compact than JSON for numeric-heavy payloads and avoids the overhead
+of text parsing.
+
+Bidirectional streaming RPCs allow both the client and server to send an arbitrary
+sequence of messages over the same stream. This enables server-push scenarios, long-lived
+subscriptions, and chunked upload protocols without polling. The gRPC framework handles
+flow control by mapping HTTP/2 window updates to back-pressure on the message send queue,
+preventing fast producers from overwhelming slow consumers.
+
+gRPC-Web is a browser-compatible subset that wraps gRPC messages in a modified framing
+protocol compatible with HTTP/1.1, since browsers cannot access the raw HTTP/2 framing
+layer. A proxy such as Envoy or grpc-web-proxy translates between the browser and a
+standard gRPC backend, allowing web applications to call backend services using the same
+generated client code as native gRPC clients.
+
+
+## 18. Public Key Infrastructure and Certificate Chains (Continued — Part 2)
+Public key infrastructure establishes trust hierarchies that allow parties who have never
+communicated to authenticate each other. A certificate authority signs certificates that
+bind a public key to an identity. Relying parties trust a root CA by including its
+self-signed certificate in a trust store maintained by the operating system or browser.
+Intermediate CAs sit between the root and end-entity certificates, reducing risk by
+keeping the root key offline.
+
+X.509 certificates carry the subject name, public key, validity period, issuer name,
+and a signature over all fields computed by the issuing CA. Extensions add constraints:
+the Basic Constraints extension marks CA certificates; the Subject Alternative Name
+extension lists hostnames and IP addresses; the Key Usage and Extended Key Usage
+extensions restrict what a key may be used for.
+
+Certificate Transparency requires CAs to log all issued certificates in append-only Merkle
+trees maintained by independent log operators. Browsers reject certificates that are not
+accompanied by a signed certificate timestamp proving inclusion in a known log. This allows
+domain owners and security researchers to detect misissued certificates quickly. The CT
+ecosystem has uncovered several CA incidents within hours of certificate issuance.
+
+Online Certificate Status Protocol and Certificate Revocation Lists allow relying parties
+to check whether a certificate has been revoked before its natural expiry. OCSP stapling
+lets the server attach a recent OCSP response to the TLS handshake, eliminating the
+need for the client to contact the OCSP responder directly. Hard-fail OCSP requires a
+valid stapled response before allowing a connection, preventing revocation bypass.
+
+
+## 19. Consensus Algorithms (Continued — Part 2)
+Consensus algorithms enable a distributed cluster to agree on a single value despite
+partial failures. The canonical approach, Paxos, operates in two phases. During the
+Prepare phase a proposer broadcasts a proposal number; acceptors reply with a promise
+not to accept lower-numbered proposals. During the Accept phase the proposer broadcasts
+its chosen value, which acceptors record unless they have since promised a higher number.
+Multi-Paxos extends this with a stable leader to amortise the cost of the first phase
+across many rounds.
+
+Raft was designed to be more understandable than Paxos by decomposing the problem into
+leader election, log replication, and safety. A Raft cluster maintains exactly one leader
+at a time. Leaders replicate log entries to followers before committing them. Followers
+that do not receive a heartbeat within a randomised timeout start an election. Randomised
+timeouts prevent simultaneous elections in most practical cases. Once a candidate receives
+votes from a majority of nodes it becomes the new leader and begins accepting client
+requests.
+
+Viewstamped Replication predates both Paxos and Raft and introduced several concepts
+later adopted elsewhere, including the notion of a view number to track leadership changes
+and a prepare-commit two-phase log replication protocol. Its recovery protocol handles
+the case where a new primary must reconstruct state from the most up-to-date replica
+before resuming normal operation.
+
+
+## 20. Memory Management and Virtual Address Spaces (Continued — Part 2)
+Modern operating systems provide each process with a private virtual address space mapped
+to physical pages through a multi-level page table. On x86-64 the canonical four-level
+table structure (PML4, PDPT, PD, PT) allows a 48-bit virtual address space with 4 KB
+pages, expandable to 57 bits with five-level paging. Each table entry carries permission
+bits controlling read, write, and execute access, along with a present bit that triggers
+a page fault on access to unmapped regions.
+
+The Translation Lookaside Buffer caches recent virtual-to-physical translations to avoid
+walking the full page table on every memory access. A TLB miss causes the CPU to perform
+a hardware page-table walk, loading the result into the TLB. Operating system context
+switches flush the TLB unless the processor supports Address Space Identifiers, which tag
+entries with a per-process identifier and allow entries from different processes to coexist.
+
+Huge pages reduce TLB pressure by covering 2 MB or 1 GB of physical memory per entry.
+Linux supports transparent huge pages, which the kernel may promote silently to reduce
+page-table overhead for large anonymous mappings. The downside is memory fragmentation:
+a 2 MB huge page that contains even a single mapped byte cannot be reclaimed or split
+without first demoting it to base pages.
+
+Demand paging allows pages to be loaded lazily from backing store. When a process first
+accesses a page the fault handler allocates a physical frame, reads the data, updates the
+page table entry, and resumes execution. Copy-on-write forks share parent pages until one
+process writes, at which point the kernel faults in a private copy.
+
+
+## 21. Scheduling in Operating Systems (Continued — Part 3)
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 22. Storage Engine Internals (Continued — Part 3)
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 23. Network Congestion Control (Continued — Part 3)
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 24. Hash Functions and Integrity Verification (Continued — Part 3)
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+## 25. Containerisation and Namespace Isolation (Continued — Part 3)
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 26. Distributed Tracing and Observability (Continued — Part 3)
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
+
+
+## 27. gRPC and Protocol Buffers (Continued — Part 3)
+gRPC is a high-performance RPC framework that uses HTTP/2 as its transport and Protocol
+Buffers as its default serialisation format. HTTP/2 multiplexes multiple streams over a
+single TCP connection, eliminating head-of-line blocking at the HTTP layer. Each RPC
+maps to a stream, with request and response messages framed as DATA frames. Trailers carry
+the gRPC status code and metadata after the response body is complete.
+
+Protocol Buffers encode structured data as a sequence of tag-value pairs. Each field has
+a field number assigned in the .proto schema and a wire type that encodes the length or
+format of the value. Varint encoding compresses small integers efficiently, using the
+most significant bit of each byte as a continuation flag. This binary format is
+substantially more compact than JSON for numeric-heavy payloads and avoids the overhead
+of text parsing.
+
+Bidirectional streaming RPCs allow both the client and server to send an arbitrary
+sequence of messages over the same stream. This enables server-push scenarios, long-lived
+subscriptions, and chunked upload protocols without polling. The gRPC framework handles
+flow control by mapping HTTP/2 window updates to back-pressure on the message send queue,
+preventing fast producers from overwhelming slow consumers.
+
+gRPC-Web is a browser-compatible subset that wraps gRPC messages in a modified framing
+protocol compatible with HTTP/1.1, since browsers cannot access the raw HTTP/2 framing
+layer. A proxy such as Envoy or grpc-web-proxy translates between the browser and a
+standard gRPC backend, allowing web applications to call backend services using the same
+generated client code as native gRPC clients.
+
+
+## 28. Public Key Infrastructure and Certificate Chains (Continued — Part 3)
+Public key infrastructure establishes trust hierarchies that allow parties who have never
+communicated to authenticate each other. A certificate authority signs certificates that
+bind a public key to an identity. Relying parties trust a root CA by including its
+self-signed certificate in a trust store maintained by the operating system or browser.
+Intermediate CAs sit between the root and end-entity certificates, reducing risk by
+keeping the root key offline.
+
+X.509 certificates carry the subject name, public key, validity period, issuer name,
+and a signature over all fields computed by the issuing CA. Extensions add constraints:
+the Basic Constraints extension marks CA certificates; the Subject Alternative Name
+extension lists hostnames and IP addresses; the Key Usage and Extended Key Usage
+extensions restrict what a key may be used for.
+
+Certificate Transparency requires CAs to log all issued certificates in append-only Merkle
+trees maintained by independent log operators. Browsers reject certificates that are not
+accompanied by a signed certificate timestamp proving inclusion in a known log. This allows
+domain owners and security researchers to detect misissued certificates quickly. The CT
+ecosystem has uncovered several CA incidents within hours of certificate issuance.
+
+Online Certificate Status Protocol and Certificate Revocation Lists allow relying parties
+to check whether a certificate has been revoked before its natural expiry. OCSP stapling
+lets the server attach a recent OCSP response to the TLS handshake, eliminating the
+need for the client to contact the OCSP responder directly. Hard-fail OCSP requires a
+valid stapled response before allowing a connection, preventing revocation bypass.
+
+
+## 29. Consensus Algorithms (Continued — Part 3)
+Consensus algorithms enable a distributed cluster to agree on a single value despite
+partial failures. The canonical approach, Paxos, operates in two phases. During the
+Prepare phase a proposer broadcasts a proposal number; acceptors reply with a promise
+not to accept lower-numbered proposals. During the Accept phase the proposer broadcasts
+its chosen value, which acceptors record unless they have since promised a higher number.
+Multi-Paxos extends this with a stable leader to amortise the cost of the first phase
+across many rounds.
+
+Raft was designed to be more understandable than Paxos by decomposing the problem into
+leader election, log replication, and safety. A Raft cluster maintains exactly one leader
+at a time. Leaders replicate log entries to followers before committing them. Followers
+that do not receive a heartbeat within a randomised timeout start an election. Randomised
+timeouts prevent simultaneous elections in most practical cases. Once a candidate receives
+votes from a majority of nodes it becomes the new leader and begins accepting client
+requests.
+
+Viewstamped Replication predates both Paxos and Raft and introduced several concepts
+later adopted elsewhere, including the notion of a view number to track leadership changes
+and a prepare-commit two-phase log replication protocol. Its recovery protocol handles
+the case where a new primary must reconstruct state from the most up-to-date replica
+before resuming normal operation.
+
+
+## 30. Memory Management and Virtual Address Spaces (Continued — Part 3)
+Modern operating systems provide each process with a private virtual address space mapped
+to physical pages through a multi-level page table. On x86-64 the canonical four-level
+table structure (PML4, PDPT, PD, PT) allows a 48-bit virtual address space with 4 KB
+pages, expandable to 57 bits with five-level paging. Each table entry carries permission
+bits controlling read, write, and execute access, along with a present bit that triggers
+a page fault on access to unmapped regions.
+
+The Translation Lookaside Buffer caches recent virtual-to-physical translations to avoid
+walking the full page table on every memory access. A TLB miss causes the CPU to perform
+a hardware page-table walk, loading the result into the TLB. Operating system context
+switches flush the TLB unless the processor supports Address Space Identifiers, which tag
+entries with a per-process identifier and allow entries from different processes to coexist.
+
+Huge pages reduce TLB pressure by covering 2 MB or 1 GB of physical memory per entry.
+Linux supports transparent huge pages, which the kernel may promote silently to reduce
+page-table overhead for large anonymous mappings. The downside is memory fragmentation:
+a 2 MB huge page that contains even a single mapped byte cannot be reclaimed or split
+without first demoting it to base pages.
+
+Demand paging allows pages to be loaded lazily from backing store. When a process first
+accesses a page the fault handler allocates a physical frame, reads the data, updates the
+page table entry, and resumes execution. Copy-on-write forks share parent pages until one
+process writes, at which point the kernel faults in a private copy.
+
+
+## 31. Scheduling in Operating Systems (Continued — Part 4)
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 32. Storage Engine Internals (Continued — Part 4)
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 33. Network Congestion Control (Continued — Part 4)
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 34. Hash Functions and Integrity Verification (Continued — Part 4)
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+## 35. Containerisation and Namespace Isolation (Continued — Part 4)
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 36. Distributed Tracing and Observability (Continued — Part 4)
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
+
+
+## 37. gRPC and Protocol Buffers (Continued — Part 4)
+gRPC is a high-performance RPC framework that uses HTTP/2 as its transport and Protocol
+Buffers as its default serialisation format. HTTP/2 multiplexes multiple streams over a
+single TCP connection, eliminating head-of-line blocking at the HTTP layer. Each RPC
+maps to a stream, with request and response messages framed as DATA frames. Trailers carry
+the gRPC status code and metadata after the response body is complete.
+
+Protocol Buffers encode structured data as a sequence of tag-value pairs. Each field has
+a field number assigned in the .proto schema and a wire type that encodes the length or
+format of the value. Varint encoding compresses small integers efficiently, using the
+most significant bit of each byte as a continuation flag. This binary format is
+substantially more compact than JSON for numeric-heavy payloads and avoids the overhead
+of text parsing.
+
+Bidirectional streaming RPCs allow both the client and server to send an arbitrary
+sequence of messages over the same stream. This enables server-push scenarios, long-lived
+subscriptions, and chunked upload protocols without polling. The gRPC framework handles
+flow control by mapping HTTP/2 window updates to back-pressure on the message send queue,
+preventing fast producers from overwhelming slow consumers.
+
+gRPC-Web is a browser-compatible subset that wraps gRPC messages in a modified framing
+protocol compatible with HTTP/1.1, since browsers cannot access the raw HTTP/2 framing
+layer. A proxy such as Envoy or grpc-web-proxy translates between the browser and a
+standard gRPC backend, allowing web applications to call backend services using the same
+generated client code as native gRPC clients.
+
+
+## 38. Public Key Infrastructure and Certificate Chains (Continued — Part 4)
+Public key infrastructure establishes trust hierarchies that allow parties who have never
+communicated to authenticate each other. A certificate authority signs certificates that
+bind a public key to an identity. Relying parties trust a root CA by including its
+self-signed certificate in a trust store maintained by the operating system or browser.
+Intermediate CAs sit between the root and end-entity certificates, reducing risk by
+keeping the root key offline.
+
+X.509 certificates carry the subject name, public key, validity period, issuer name,
+and a signature over all fields computed by the issuing CA. Extensions add constraints:
+the Basic Constraints extension marks CA certificates; the Subject Alternative Name
+extension lists hostnames and IP addresses; the Key Usage and Extended Key Usage
+extensions restrict what a key may be used for.
+
+Certificate Transparency requires CAs to log all issued certificates in append-only Merkle
+trees maintained by independent log operators. Browsers reject certificates that are not
+accompanied by a signed certificate timestamp proving inclusion in a known log. This allows
+domain owners and security researchers to detect misissued certificates quickly. The CT
+ecosystem has uncovered several CA incidents within hours of certificate issuance.
+
+Online Certificate Status Protocol and Certificate Revocation Lists allow relying parties
+to check whether a certificate has been revoked before its natural expiry. OCSP stapling
+lets the server attach a recent OCSP response to the TLS handshake, eliminating the
+need for the client to contact the OCSP responder directly. Hard-fail OCSP requires a
+valid stapled response before allowing a connection, preventing revocation bypass.
+
+
+## 39. Consensus Algorithms (Continued — Part 4)
+Consensus algorithms enable a distributed cluster to agree on a single value despite
+partial failures. The canonical approach, Paxos, operates in two phases. During the
+Prepare phase a proposer broadcasts a proposal number; acceptors reply with a promise
+not to accept lower-numbered proposals. During the Accept phase the proposer broadcasts
+its chosen value, which acceptors record unless they have since promised a higher number.
+Multi-Paxos extends this with a stable leader to amortise the cost of the first phase
+across many rounds.
+
+Raft was designed to be more understandable than Paxos by decomposing the problem into
+leader election, log replication, and safety. A Raft cluster maintains exactly one leader
+at a time. Leaders replicate log entries to followers before committing them. Followers
+that do not receive a heartbeat within a randomised timeout start an election. Randomised
+timeouts prevent simultaneous elections in most practical cases. Once a candidate receives
+votes from a majority of nodes it becomes the new leader and begins accepting client
+requests.
+
+Viewstamped Replication predates both Paxos and Raft and introduced several concepts
+later adopted elsewhere, including the notion of a view number to track leadership changes
+and a prepare-commit two-phase log replication protocol. Its recovery protocol handles
+the case where a new primary must reconstruct state from the most up-to-date replica
+before resuming normal operation.
+
+
+## 40. Memory Management and Virtual Address Spaces (Continued — Part 4)
+Modern operating systems provide each process with a private virtual address space mapped
+to physical pages through a multi-level page table. On x86-64 the canonical four-level
+table structure (PML4, PDPT, PD, PT) allows a 48-bit virtual address space with 4 KB
+pages, expandable to 57 bits with five-level paging. Each table entry carries permission
+bits controlling read, write, and execute access, along with a present bit that triggers
+a page fault on access to unmapped regions.
+
+The Translation Lookaside Buffer caches recent virtual-to-physical translations to avoid
+walking the full page table on every memory access. A TLB miss causes the CPU to perform
+a hardware page-table walk, loading the result into the TLB. Operating system context
+switches flush the TLB unless the processor supports Address Space Identifiers, which tag
+entries with a per-process identifier and allow entries from different processes to coexist.
+
+Huge pages reduce TLB pressure by covering 2 MB or 1 GB of physical memory per entry.
+Linux supports transparent huge pages, which the kernel may promote silently to reduce
+page-table overhead for large anonymous mappings. The downside is memory fragmentation:
+a 2 MB huge page that contains even a single mapped byte cannot be reclaimed or split
+without first demoting it to base pages.
+
+Demand paging allows pages to be loaded lazily from backing store. When a process first
+accesses a page the fault handler allocates a physical frame, reads the data, updates the
+page table entry, and resumes execution. Copy-on-write forks share parent pages until one
+process writes, at which point the kernel faults in a private copy.
+
+
+## 41. Scheduling in Operating Systems (Continued — Part 5)
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 42. Storage Engine Internals (Continued — Part 5)
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 43. Network Congestion Control (Continued — Part 5)
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 44. Hash Functions and Integrity Verification (Continued — Part 5)
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+## 45. Containerisation and Namespace Isolation (Continued — Part 5)
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 46. Distributed Tracing and Observability (Continued — Part 5)
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
+
+
+## 47. gRPC and Protocol Buffers (Continued — Part 5)
+gRPC is a high-performance RPC framework that uses HTTP/2 as its transport and Protocol
+Buffers as its default serialisation format. HTTP/2 multiplexes multiple streams over a
+single TCP connection, eliminating head-of-line blocking at the HTTP layer. Each RPC
+maps to a stream, with request and response messages framed as DATA frames. Trailers carry
+the gRPC status code and metadata after the response body is complete.
+
+Protocol Buffers encode structured data as a sequence of tag-value pairs. Each field has
+a field number assigned in the .proto schema and a wire type that encodes the length or
+format of the value. Varint encoding compresses small integers efficiently, using the
+most significant bit of each byte as a continuation flag. This binary format is
+substantially more compact than JSON for numeric-heavy payloads and avoids the overhead
+of text parsing.
+
+Bidirectional streaming RPCs allow both the client and server to send an arbitrary
+sequence of messages over the same stream. This enables server-push scenarios, long-lived
+subscriptions, and chunked upload protocols without polling. The gRPC framework handles
+flow control by mapping HTTP/2 window updates to back-pressure on the message send queue,
+preventing fast producers from overwhelming slow consumers.
+
+gRPC-Web is a browser-compatible subset that wraps gRPC messages in a modified framing
+protocol compatible with HTTP/1.1, since browsers cannot access the raw HTTP/2 framing
+layer. A proxy such as Envoy or grpc-web-proxy translates between the browser and a
+standard gRPC backend, allowing web applications to call backend services using the same
+generated client code as native gRPC clients.
+
+
+## 48. Public Key Infrastructure and Certificate Chains (Continued — Part 5)
+Public key infrastructure establishes trust hierarchies that allow parties who have never
+communicated to authenticate each other. A certificate authority signs certificates that
+bind a public key to an identity. Relying parties trust a root CA by including its
+self-signed certificate in a trust store maintained by the operating system or browser.
+Intermediate CAs sit between the root and end-entity certificates, reducing risk by
+keeping the root key offline.
+
+X.509 certificates carry the subject name, public key, validity period, issuer name,
+and a signature over all fields computed by the issuing CA. Extensions add constraints:
+the Basic Constraints extension marks CA certificates; the Subject Alternative Name
+extension lists hostnames and IP addresses; the Key Usage and Extended Key Usage
+extensions restrict what a key may be used for.
+
+Certificate Transparency requires CAs to log all issued certificates in append-only Merkle
+trees maintained by independent log operators. Browsers reject certificates that are not
+accompanied by a signed certificate timestamp proving inclusion in a known log. This allows
+domain owners and security researchers to detect misissued certificates quickly. The CT
+ecosystem has uncovered several CA incidents within hours of certificate issuance.
+
+Online Certificate Status Protocol and Certificate Revocation Lists allow relying parties
+to check whether a certificate has been revoked before its natural expiry. OCSP stapling
+lets the server attach a recent OCSP response to the TLS handshake, eliminating the
+need for the client to contact the OCSP responder directly. Hard-fail OCSP requires a
+valid stapled response before allowing a connection, preventing revocation bypass.
+
+
+## 49. Consensus Algorithms (Continued — Part 5)
+Consensus algorithms enable a distributed cluster to agree on a single value despite
+partial failures. The canonical approach, Paxos, operates in two phases. During the
+Prepare phase a proposer broadcasts a proposal number; acceptors reply with a promise
+not to accept lower-numbered proposals. During the Accept phase the proposer broadcasts
+its chosen value, which acceptors record unless they have since promised a higher number.
+Multi-Paxos extends this with a stable leader to amortise the cost of the first phase
+across many rounds.
+
+Raft was designed to be more understandable than Paxos by decomposing the problem into
+leader election, log replication, and safety. A Raft cluster maintains exactly one leader
+at a time. Leaders replicate log entries to followers before committing them. Followers
+that do not receive a heartbeat within a randomised timeout start an election. Randomised
+timeouts prevent simultaneous elections in most practical cases. Once a candidate receives
+votes from a majority of nodes it becomes the new leader and begins accepting client
+requests.
+
+Viewstamped Replication predates both Paxos and Raft and introduced several concepts
+later adopted elsewhere, including the notion of a view number to track leadership changes
+and a prepare-commit two-phase log replication protocol. Its recovery protocol handles
+the case where a new primary must reconstruct state from the most up-to-date replica
+before resuming normal operation.
+
+
+## 50. Memory Management and Virtual Address Spaces (Continued — Part 5)
+Modern operating systems provide each process with a private virtual address space mapped
+to physical pages through a multi-level page table. On x86-64 the canonical four-level
+table structure (PML4, PDPT, PD, PT) allows a 48-bit virtual address space with 4 KB
+pages, expandable to 57 bits with five-level paging. Each table entry carries permission
+bits controlling read, write, and execute access, along with a present bit that triggers
+a page fault on access to unmapped regions.
+
+The Translation Lookaside Buffer caches recent virtual-to-physical translations to avoid
+walking the full page table on every memory access. A TLB miss causes the CPU to perform
+a hardware page-table walk, loading the result into the TLB. Operating system context
+switches flush the TLB unless the processor supports Address Space Identifiers, which tag
+entries with a per-process identifier and allow entries from different processes to coexist.
+
+Huge pages reduce TLB pressure by covering 2 MB or 1 GB of physical memory per entry.
+Linux supports transparent huge pages, which the kernel may promote silently to reduce
+page-table overhead for large anonymous mappings. The downside is memory fragmentation:
+a 2 MB huge page that contains even a single mapped byte cannot be reclaimed or split
+without first demoting it to base pages.
+
+Demand paging allows pages to be loaded lazily from backing store. When a process first
+accesses a page the fault handler allocates a physical frame, reads the data, updates the
+page table entry, and resumes execution. Copy-on-write forks share parent pages until one
+process writes, at which point the kernel faults in a private copy.
+
+
+## 51. Scheduling in Operating Systems (Continued — Part 6)
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 52. Storage Engine Internals (Continued — Part 6)
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 53. Network Congestion Control (Continued — Part 6)
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 54. Hash Functions and Integrity Verification (Continued — Part 6)
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+## 55. Containerisation and Namespace Isolation (Continued — Part 6)
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 56. Distributed Tracing and Observability (Continued — Part 6)
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
+
+
+## 57. gRPC and Protocol Buffers (Continued — Part 6)
+gRPC is a high-performance RPC framework that uses HTTP/2 as its transport and Protocol
+Buffers as its default serialisation format. HTTP/2 multiplexes multiple streams over a
+single TCP connection, eliminating head-of-line blocking at the HTTP layer. Each RPC
+maps to a stream, with request and response messages framed as DATA frames. Trailers carry
+the gRPC status code and metadata after the response body is complete.
+
+Protocol Buffers encode structured data as a sequence of tag-value pairs. Each field has
+a field number assigned in the .proto schema and a wire type that encodes the length or
+format of the value. Varint encoding compresses small integers efficiently, using the
+most significant bit of each byte as a continuation flag. This binary format is
+substantially more compact than JSON for numeric-heavy payloads and avoids the overhead
+of text parsing.
+
+Bidirectional streaming RPCs allow both the client and server to send an arbitrary
+sequence of messages over the same stream. This enables server-push scenarios, long-lived
+subscriptions, and chunked upload protocols without polling. The gRPC framework handles
+flow control by mapping HTTP/2 window updates to back-pressure on the message send queue,
+preventing fast producers from overwhelming slow consumers.
+
+gRPC-Web is a browser-compatible subset that wraps gRPC messages in a modified framing
+protocol compatible with HTTP/1.1, since browsers cannot access the raw HTTP/2 framing
+layer. A proxy such as Envoy or grpc-web-proxy translates between the browser and a
+standard gRPC backend, allowing web applications to call backend services using the same
+generated client code as native gRPC clients.
+
+
+## 58. Public Key Infrastructure and Certificate Chains (Continued — Part 6)
+Public key infrastructure establishes trust hierarchies that allow parties who have never
+communicated to authenticate each other. A certificate authority signs certificates that
+bind a public key to an identity. Relying parties trust a root CA by including its
+self-signed certificate in a trust store maintained by the operating system or browser.
+Intermediate CAs sit between the root and end-entity certificates, reducing risk by
+keeping the root key offline.
+
+X.509 certificates carry the subject name, public key, validity period, issuer name,
+and a signature over all fields computed by the issuing CA. Extensions add constraints:
+the Basic Constraints extension marks CA certificates; the Subject Alternative Name
+extension lists hostnames and IP addresses; the Key Usage and Extended Key Usage
+extensions restrict what a key may be used for.
+
+Certificate Transparency requires CAs to log all issued certificates in append-only Merkle
+trees maintained by independent log operators. Browsers reject certificates that are not
+accompanied by a signed certificate timestamp proving inclusion in a known log. This allows
+domain owners and security researchers to detect misissued certificates quickly. The CT
+ecosystem has uncovered several CA incidents within hours of certificate issuance.
+
+Online Certificate Status Protocol and Certificate Revocation Lists allow relying parties
+to check whether a certificate has been revoked before its natural expiry. OCSP stapling
+lets the server attach a recent OCSP response to the TLS handshake, eliminating the
+need for the client to contact the OCSP responder directly. Hard-fail OCSP requires a
+valid stapled response before allowing a connection, preventing revocation bypass.
+
+
+## 59. Consensus Algorithms (Continued — Part 6)
+Consensus algorithms enable a distributed cluster to agree on a single value despite
+partial failures. The canonical approach, Paxos, operates in two phases. During the
+Prepare phase a proposer broadcasts a proposal number; acceptors reply with a promise
+not to accept lower-numbered proposals. During the Accept phase the proposer broadcasts
+its chosen value, which acceptors record unless they have since promised a higher number.
+Multi-Paxos extends this with a stable leader to amortise the cost of the first phase
+across many rounds.
+
+Raft was designed to be more understandable than Paxos by decomposing the problem into
+leader election, log replication, and safety. A Raft cluster maintains exactly one leader
+at a time. Leaders replicate log entries to followers before committing them. Followers
+that do not receive a heartbeat within a randomised timeout start an election. Randomised
+timeouts prevent simultaneous elections in most practical cases. Once a candidate receives
+votes from a majority of nodes it becomes the new leader and begins accepting client
+requests.
+
+Viewstamped Replication predates both Paxos and Raft and introduced several concepts
+later adopted elsewhere, including the notion of a view number to track leadership changes
+and a prepare-commit two-phase log replication protocol. Its recovery protocol handles
+the case where a new primary must reconstruct state from the most up-to-date replica
+before resuming normal operation.
+
+
+## 60. Memory Management and Virtual Address Spaces (Continued — Part 6)
+Modern operating systems provide each process with a private virtual address space mapped
+to physical pages through a multi-level page table. On x86-64 the canonical four-level
+table structure (PML4, PDPT, PD, PT) allows a 48-bit virtual address space with 4 KB
+pages, expandable to 57 bits with five-level paging. Each table entry carries permission
+bits controlling read, write, and execute access, along with a present bit that triggers
+a page fault on access to unmapped regions.
+
+The Translation Lookaside Buffer caches recent virtual-to-physical translations to avoid
+walking the full page table on every memory access. A TLB miss causes the CPU to perform
+a hardware page-table walk, loading the result into the TLB. Operating system context
+switches flush the TLB unless the processor supports Address Space Identifiers, which tag
+entries with a per-process identifier and allow entries from different processes to coexist.
+
+Huge pages reduce TLB pressure by covering 2 MB or 1 GB of physical memory per entry.
+Linux supports transparent huge pages, which the kernel may promote silently to reduce
+page-table overhead for large anonymous mappings. The downside is memory fragmentation:
+a 2 MB huge page that contains even a single mapped byte cannot be reclaimed or split
+without first demoting it to base pages.
+
+Demand paging allows pages to be loaded lazily from backing store. When a process first
+accesses a page the fault handler allocates a physical frame, reads the data, updates the
+page table entry, and resumes execution. Copy-on-write forks share parent pages until one
+process writes, at which point the kernel faults in a private copy.
+
+
+## 61. Scheduling in Operating Systems (Continued — Part 7)
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 62. Storage Engine Internals (Continued — Part 7)
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 63. Network Congestion Control (Continued — Part 7)
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 64. Hash Functions and Integrity Verification (Continued — Part 7)
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+## 65. Containerisation and Namespace Isolation (Continued — Part 7)
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 66. Distributed Tracing and Observability (Continued — Part 7)
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
+
+
+## 67. gRPC and Protocol Buffers (Continued — Part 7)
+gRPC is a high-performance RPC framework that uses HTTP/2 as its transport and Protocol
+Buffers as its default serialisation format. HTTP/2 multiplexes multiple streams over a
+single TCP connection, eliminating head-of-line blocking at the HTTP layer. Each RPC
+maps to a stream, with request and response messages framed as DATA frames. Trailers carry
+the gRPC status code and metadata after the response body is complete.
+
+Protocol Buffers encode structured data as a sequence of tag-value pairs. Each field has
+a field number assigned in the .proto schema and a wire type that encodes the length or
+format of the value. Varint encoding compresses small integers efficiently, using the
+most significant bit of each byte as a continuation flag. This binary format is
+substantially more compact than JSON for numeric-heavy payloads and avoids the overhead
+of text parsing.
+
+Bidirectional streaming RPCs allow both the client and server to send an arbitrary
+sequence of messages over the same stream. This enables server-push scenarios, long-lived
+subscriptions, and chunked upload protocols without polling. The gRPC framework handles
+flow control by mapping HTTP/2 window updates to back-pressure on the message send queue,
+preventing fast producers from overwhelming slow consumers.
+
+gRPC-Web is a browser-compatible subset that wraps gRPC messages in a modified framing
+protocol compatible with HTTP/1.1, since browsers cannot access the raw HTTP/2 framing
+layer. A proxy such as Envoy or grpc-web-proxy translates between the browser and a
+standard gRPC backend, allowing web applications to call backend services using the same
+generated client code as native gRPC clients.
+
+
+## 68. Public Key Infrastructure and Certificate Chains (Continued — Part 7)
+Public key infrastructure establishes trust hierarchies that allow parties who have never
+communicated to authenticate each other. A certificate authority signs certificates that
+bind a public key to an identity. Relying parties trust a root CA by including its
+self-signed certificate in a trust store maintained by the operating system or browser.
+Intermediate CAs sit between the root and end-entity certificates, reducing risk by
+keeping the root key offline.
+
+X.509 certificates carry the subject name, public key, validity period, issuer name,
+and a signature over all fields computed by the issuing CA. Extensions add constraints:
+the Basic Constraints extension marks CA certificates; the Subject Alternative Name
+extension lists hostnames and IP addresses; the Key Usage and Extended Key Usage
+extensions restrict what a key may be used for.
+
+Certificate Transparency requires CAs to log all issued certificates in append-only Merkle
+trees maintained by independent log operators. Browsers reject certificates that are not
+accompanied by a signed certificate timestamp proving inclusion in a known log. This allows
+domain owners and security researchers to detect misissued certificates quickly. The CT
+ecosystem has uncovered several CA incidents within hours of certificate issuance.
+
+Online Certificate Status Protocol and Certificate Revocation Lists allow relying parties
+to check whether a certificate has been revoked before its natural expiry. OCSP stapling
+lets the server attach a recent OCSP response to the TLS handshake, eliminating the
+need for the client to contact the OCSP responder directly. Hard-fail OCSP requires a
+valid stapled response before allowing a connection, preventing revocation bypass.
+
+
+## 69. Consensus Algorithms (Continued — Part 7)
+Consensus algorithms enable a distributed cluster to agree on a single value despite
+partial failures. The canonical approach, Paxos, operates in two phases. During the
+Prepare phase a proposer broadcasts a proposal number; acceptors reply with a promise
+not to accept lower-numbered proposals. During the Accept phase the proposer broadcasts
+its chosen value, which acceptors record unless they have since promised a higher number.
+Multi-Paxos extends this with a stable leader to amortise the cost of the first phase
+across many rounds.
+
+Raft was designed to be more understandable than Paxos by decomposing the problem into
+leader election, log replication, and safety. A Raft cluster maintains exactly one leader
+at a time. Leaders replicate log entries to followers before committing them. Followers
+that do not receive a heartbeat within a randomised timeout start an election. Randomised
+timeouts prevent simultaneous elections in most practical cases. Once a candidate receives
+votes from a majority of nodes it becomes the new leader and begins accepting client
+requests.
+
+Viewstamped Replication predates both Paxos and Raft and introduced several concepts
+later adopted elsewhere, including the notion of a view number to track leadership changes
+and a prepare-commit two-phase log replication protocol. Its recovery protocol handles
+the case where a new primary must reconstruct state from the most up-to-date replica
+before resuming normal operation.
+
+
+## 70. Memory Management and Virtual Address Spaces (Continued — Part 7)
+Modern operating systems provide each process with a private virtual address space mapped
+to physical pages through a multi-level page table. On x86-64 the canonical four-level
+table structure (PML4, PDPT, PD, PT) allows a 48-bit virtual address space with 4 KB
+pages, expandable to 57 bits with five-level paging. Each table entry carries permission
+bits controlling read, write, and execute access, along with a present bit that triggers
+a page fault on access to unmapped regions.
+
+The Translation Lookaside Buffer caches recent virtual-to-physical translations to avoid
+walking the full page table on every memory access. A TLB miss causes the CPU to perform
+a hardware page-table walk, loading the result into the TLB. Operating system context
+switches flush the TLB unless the processor supports Address Space Identifiers, which tag
+entries with a per-process identifier and allow entries from different processes to coexist.
+
+Huge pages reduce TLB pressure by covering 2 MB or 1 GB of physical memory per entry.
+Linux supports transparent huge pages, which the kernel may promote silently to reduce
+page-table overhead for large anonymous mappings. The downside is memory fragmentation:
+a 2 MB huge page that contains even a single mapped byte cannot be reclaimed or split
+without first demoting it to base pages.
+
+Demand paging allows pages to be loaded lazily from backing store. When a process first
+accesses a page the fault handler allocates a physical frame, reads the data, updates the
+page table entry, and resumes execution. Copy-on-write forks share parent pages until one
+process writes, at which point the kernel faults in a private copy.
+
+
+## 71. Scheduling in Operating Systems (Continued — Part 8)
+The CPU scheduler decides which runnable process executes next and for how long.
+Completely Fair Scheduler, the default Linux process scheduler since 2.6.23, models
+fairness as equal virtual runtime. Each process accumulates virtual runtime proportional
+to its wall-clock CPU usage divided by its weight. The scheduler always runs the process
+with the lowest accumulated virtual runtime, approximating ideal work-conserving fair
+queuing. A red-black tree ordered by virtual runtime allows O(log n) insertion and
+O(1) extraction of the minimum.
+
+Real-time scheduling policies bypass CFS for latency-sensitive workloads. SCHED_FIFO
+runs a task until it yields or is preempted by a higher-priority real-time task.
+SCHED_RR is similar but adds a time quantum after which the task is moved to the end of
+its priority queue. Both policies require root privileges to set priorities above zero
+because a misbehaving high-priority task can starve the entire system.
+
+NUMA-aware scheduling places threads on the CPU socket closest to the memory they access.
+The scheduler tracks the NUMA node of each process's memory allocations and prefers to
+schedule it on a CPU with local access to that node. Periodic NUMA balancing unmaps pages
+and retraps the faulting access to detect which node is actually accessing which memory,
+then migrates pages and tasks to reduce remote accesses.
+
+Energy-aware scheduling extends NUMA awareness to heterogeneous CPU topologies like ARM
+big.LITTLE, where high-performance cores and high-efficiency cores coexist on the same
+chip. The scheduler maintains a power model for each CPU and routes foreground tasks to
+performance cores while parking idle threads on efficiency cores to reduce power draw
+during light workloads.
+
+
+## 72. Storage Engine Internals (Continued — Part 8)
+Log-structured storage engines write all mutations as sequential appends to an
+append-only log, periodically compacting old segments to reclaim space. This design
+converts random writes into sequential I/O, which is substantially faster on rotational
+media and avoids write amplification on flash. LevelDB and RocksDB implement a
+log-structured merge tree where data is organised into multiple levels. Level zero
+contains recently flushed memtable data. Higher levels hold progressively larger sorted
+runs merged during compaction.
+
+B-tree storage engines organise data in a balanced tree of fixed-size pages. Each update
+performs a read-modify-write on one or more pages, which can be expensive on flash due to
+erase-before-write semantics. Write-ahead logging provides crash recovery: every
+modification is first recorded in the log before being applied to the tree. On recovery
+the engine replays uncommitted log entries to restore a consistent state.
+
+Copy-on-write B-trees, used in systems like LMDB and the btrfs filesystem, never modify
+pages in place. Instead, each write creates a new page and updates the path from root to
+leaf by creating new copies of all ancestor pages. The old root remains valid until
+explicitly discarded, enabling multiversion concurrency control without a separate lock
+manager. Readers access a consistent snapshot by pinning the root at the start of their
+transaction.
+
+Bloom filters allow storage engines to skip disk reads for keys that do not exist in a
+given SSTable or B-tree file. A bloom filter stores a compact probabilistic summary of
+the key set with a controllable false positive rate. A false positive wastes one I/O; a
+false negative is impossible. Typical deployments target one to two percent false positive
+rates, which requires roughly ten bits per key.
+
+
+## 73. Network Congestion Control (Continued — Part 8)
+TCP congestion control balances throughput against fairness and loss avoidance by
+maintaining a congestion window that limits the number of unacknowledged segments in
+flight. The slow-start phase grows the window exponentially until a threshold is reached
+or a loss event occurs. Congestion avoidance then increases the window linearly, one
+maximum segment size per round-trip time. A timeout resets the window to one segment and
+restarts slow start. A triple duplicate ACK triggers fast retransmit and fast recovery,
+halving the window and threshold without restarting slow start.
+
+CUBIC replaces the linear growth function with a cubic curve centred on the last
+congestion event. This allows the window to grow aggressively after a loss while
+approaching the previous maximum cautiously, which improves fairness in high-bandwidth
+long-delay networks. Linux has used CUBIC as its default since kernel 2.6.19.
+
+BBR takes a different approach by modelling the bottleneck bandwidth and round-trip
+propagation delay directly rather than inferring congestion from packet loss. It
+periodically probes for additional bandwidth and maintains a pacing rate that keeps the
+network pipe full without building excessive queue. BBR performs well on paths with
+shallow buffers and in high-loss wireless environments where loss-based algorithms
+interpret corruption as congestion.
+
+QUIC moves congestion control to user space, allowing faster iteration and per-connection
+algorithm selection. Its packet-number space separates retransmitted and original data,
+eliminating the TCP retransmission ambiguity that complicates RTT estimation. Connection
+migration lets a client maintain a session across IP address changes, which is common on
+mobile devices moving between WiFi and cellular networks.
+
+
+## 74. Hash Functions and Integrity Verification (Continued — Part 8)
+Cryptographic hash functions map arbitrary-length inputs to fixed-length digests with
+three security properties. Pre-image resistance makes it computationally infeasible to
+find an input that hashes to a given digest. Second pre-image resistance makes it
+infeasible to find a different input with the same hash as a given input. Collision
+resistance makes it infeasible to find any two distinct inputs with the same hash.
+
+SHA-256 produces a 256-bit digest through a Merkle-Damgård construction operating on
+512-bit message blocks. The compression function applies 64 rounds of mixing using
+message schedule words derived from the input block and eight state variables initialised
+to the square roots of the first eight prime numbers. SHA-3 uses a sponge construction
+with a 1600-bit state, absorbing input in 1088-bit chunks and squeezing output after
+applying the Keccak permutation.
+
+BLAKE3 is a modern cryptographic hash designed for software performance. It combines a
+binary tree of BLAKE2 compression functions with a streaming mode that allows incremental
+updates and parallel computation across multiple CPU cores. BLAKE3 is faster than
+SHA-256 and SHA-3 on modern hardware with SIMD extensions and matches their security
+levels.
+
+Message authentication codes extend hash functions with a shared secret key to provide
+integrity and authenticity simultaneously. HMAC constructs a MAC by hashing the key
+concatenated with the message twice with different key derivations. KMAC, defined in
+NIST SP 800-185, is a purpose-built MAC based on SHA-3 that avoids the length-extension
+vulnerability present in HMAC-SHA-256 when used carelessly.
+
+
+## 75. Containerisation and Namespace Isolation (Continued — Part 8)
+Linux namespaces partition global kernel resources so that processes in different
+namespaces see isolated views. The PID namespace gives a container its own process ID
+space, with PID 1 being the container init. The network namespace provides a private
+network stack including interfaces, routing tables, firewall rules, and socket tables.
+The mount namespace controls the filesystem hierarchy visible to a process. The user
+namespace maps container UIDs to host UIDs, allowing unprivileged users to run root
+inside a container without real host privileges.
+
+Control groups limit and account for resource usage. A cgroup hierarchy assigns processes
+to groups that share resource limits. The CPU controller caps CPU time or sets relative
+weights. The memory controller enforces memory limits and triggers the OOM killer when a
+cgroup exceeds its allocation. The blkio controller throttles block I/O bandwidth and
+limits IOPS per device.
+
+The union filesystem layers used by container runtimes compose a container image from
+multiple read-only layers plus a writable overlay. When a process writes to a file that
+exists in a lower layer, the runtime copies it up to the writable layer before the write
+proceeds. This copy-on-write approach keeps the base layers immutable and shareable
+across containers running the same image, saving storage and download time.
+
+seccomp filters restrict which system calls a process may make. A filter is a BPF program
+that runs in the kernel before each system call and either allows, traps, or kills the
+calling thread. Container runtimes install a default seccomp profile that blocks
+dangerous calls like ptrace, mount, and kexec while permitting everything needed for
+normal application operation.
+
+
+## 76. Distributed Tracing and Observability (Continued — Part 8)
+Distributed tracing captures the causal chain of operations across service boundaries.
+A trace represents the end-to-end execution of a single user request, decomposed into
+spans that record individual operations. Each span carries a trace ID shared across all
+spans in the trace, a span ID unique within the trace, and a parent span ID that encodes
+the call graph. Timing data shows where latency is concentrated. Contextual tags attach
+metadata such as service name, host, and error codes.
+
+The W3C Trace Context standard defines HTTP headers for propagating trace context between
+services: traceparent carries the trace ID, parent span ID, and sampling flags; tracestate
+carries vendor-specific fields. By adopting a common propagation format, heterogeneous
+services from different vendors can participate in the same trace without custom
+integration.
+
+Exemplars link metrics to traces by embedding a trace ID in a metric sample. When
+investigating a latency spike in a histogram, an exemplar points to a specific trace that
+contributed to the high-latency bucket, allowing the operator to drill from aggregate
+metrics into a concrete execution. OpenMetrics and Prometheus support exemplars in the
+text exposition format and in remote write.
+
+Continuous profiling extends tracing to CPU and memory profiles, capturing stack traces
+across a fleet of services at low overhead. Unlike one-shot profiles, continuous profilers
+aggregate data over time, allowing engineers to compare profiles before and after a
+deployment or correlate CPU regressions with code changes. Parca, Pyroscope, and Polar
+Signals are open-source implementations that store profiles in object storage for
+long-term retention.
